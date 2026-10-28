@@ -29,7 +29,10 @@ export async function requestJson<T>(url: string, init: RequestInit = {}, attemp
       if (!response.ok) {
         if ((response.status === 429 || response.status >= 500) && n + 1 < attempts) {
           const retry = Number(response.headers.get('retry-after'));
-          await pause(Math.min(30000, Math.max(500 * 2 ** n, Number.isFinite(retry) ? retry * 1000 : 0)));
+          // A long provider cooldown exceeds an interactive request's budget.
+          // Fail honestly instead of holding the function or retrying too soon.
+          if (retry > 2) throw new BackendError('VENDOR_COOLDOWN');
+          await pause(Math.min(2000, Math.max(500 * 2 ** n, Number.isFinite(retry) ? retry * 1000 : 0)));
           continue;
         }
         // Never include the URL, headers, or vendor response (may contain keys).

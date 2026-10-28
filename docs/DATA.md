@@ -1,9 +1,6 @@
 # Data contract and availability
 
-The public dashboard still serves **Synthetic sample data** until access, licensing,
-freshness, and sufficient point-in-time history all pass. Backfilling a price
-history does not manufacture historical availability. In particular, this first
-deployment cannot produce six years of verified OANDA point-in-time history.
+The dashboard is private and retrieves current pricing and existing historical bars directly from providers. Empty Supabase price storage never triggers synthetic prices or a collection waiting period. Strict point-in-time research remains a separate evidence-gated path.
 
 ## Catalog
 
@@ -21,12 +18,11 @@ deployment cannot produce six years of verified OANDA point-in-time history.
 | cot | CFTC 72hh-3qpy, contract 088691 | Managed-money net futures-only, contracts | First retrieval until historical release/vintage evidence exists |
 | etf | GLD adapter not configured | Tonnes | No approved source; no scraping |
 
-`/api/series` returns daily arrays of equal length, oldest first. Core series are
-gold/dxy/oil/ry. ETF/COT/VIX are either complete numeric arrays or `null` because
-the legacy engine does not support partially missing context arrays. It requires
-at least 200 consecutive eligible business bars. Required gaps do not get silently
-removed from the interior of the sample. Nonpositive gold/DXY/oil disables live
-serving because the engine uses log returns (notably WTI can be nonpositive).
+Default `/api/series` returns daily arrays, oldest first. Gold is always required. Other fields are full-length numeric arrays or `null`; missing values are never zero-filled. `meta.chartFactors` carries equal-length arrays with explicit null gaps for chart overlays. `meta.analysisData` is the latest contiguous suffix of valid gold/DXY/oil/real-yield values, only supplied with at least 91 bars. It supplies 60-day models and 90-day correlations while the main gold chart retains full coverage. Baseline length and model sample coverage are labeled. All macro observations must satisfy publication timing and the existing ten-calendar-day freshness bound at each bar; old interior gaps are never compressed into daily returns.
+
+`/api/quote` calls OANDA account pricing, displaying (top bid + top ask)/2 in USD per troy ounce and the price object's timestamp. Tradeable quotes older than two minutes are stale; non-tradeable prices are marked not tradeable (which can include market closures). A failed request can leave a clearly labeled last-cached quote in the browser. Completed daily closes are separately labeled when current pricing is unavailable.
+
+Quote TTL is 10 seconds per server instance; visible-tab polling is 15 seconds. History TTL is five minutes per instance, with concurrent request deduplication. Refresh always makes server requests, which may reuse unexpired successful caches. Failed requests are not cached and expiry never silently extends. All HTTP responses remain private and authorized before cache access. Cold instances can fetch independently; Twelve's shared SQL reservation protects its quota across instances.
 
 ## Availability and vintages
 
@@ -62,8 +58,8 @@ new vintage. Raw bars deduplicate by instrument/vendor/start/content hash.
   specific vintage value and its actual publication timestamp. No current
   adapter asserts that basis.
 
-`series_as_of(series_ids, as_of, start_date, end_date)` is the sole observation
-query used by the series API. For **each** historical bar it selects the newest
+`series_as_of(series_ids, as_of, start_date, end_date)` is the observation
+query used only by explicit strict research requests (`mode=research` or `as_of`). For **each** historical bar it selects the newest
 observation date, then newest stored vintage satisfying:
 
 ```
@@ -77,14 +73,7 @@ rates/oil/VIX 10, broad dollar 14, COT 21. Carrying a known older observation is
 explicitly marked in metadata. Live UI release lags are zero because the server
 has already aligned availability; these data are not same-day synchronized
 closing quotes. Historical requests cannot see observations collected later.
-The server returns a contiguous suffix or synthetic fallback, never a hybrid of
-real and synthetic series. Enabled real-data mode returns explicit unavailable
-errors instead of synthetic fallbacks. Disabled mode is an explicit demo,
-unrelated to `as_of`; its UI badge is `Demo data · not market prices`. The browser
-never generates a synthetic sample after an API error. `/api/quote` is a separate,
-authenticated latest-daily-close display from complete OANDA raw bars. It obeys
-retrieval/close cutoffs and a five-day freshness limit, needs no 200-bar history,
-and is never used to bypass research eligibility or compute a backtest.
+Strict research requires 200 consecutive eligible core bars and fresh required series; unavailable research returns a sanitized error. Default historical downloads never bypass that requirement: they are descriptive and `researchEligible=false`. The backtest panel stays present and explains the evidence limitation; it does not run or record an unverified backtest. The database append-only timestamps and SQL are unchanged. Data-disabled mode returns an error, with no implicit demo.
 
 ## Session clock and calendar
 
@@ -96,13 +85,13 @@ All timestamps are stored as timestamptz/UTC. Twelve Data's timezone parameter
 does not establish an equivalent 17:00 trading session. Its daily cross-check
 excludes the current UTC date and only raises qualified disagreement warnings.
 
-The analysis calendar is US federal business days: weekdays excluding observed
+The strict SQL research calendar is US federal business days: weekdays excluding observed
 New Year, MLK, Presidents Day, Memorial Day, Juneteenth (2021 onward), Independence
 Day, Labor Day, Columbus Day, Veterans Day, Thanksgiving, Christmas. Saturday
 fixed holidays observe Friday; Sunday holidays observe Monday. Full 17:00 closes;
 no early closes or ad hoc closure assumptions. Good Friday remains a federal
 business day. This deliberately differs from both the OTC FX and NYSE calendars.
-It is not a futures/exchange execution calendar. Invalid/missing values follow
+It is not a futures/exchange execution calendar. Default chart history instead uses the completed gold sessions actually returned by OANDA. Invalid/missing values follow
 the documented bounded forward-fill rules.
 
 ## DXY and quality
@@ -142,6 +131,7 @@ research-grade validation of an edge.
 
 ## Official references (checked 2026-10-28)
 
+* [OANDA account pricing](https://developer.oanda.com/rest-live-v20/pricing-ep/)
 * [OANDA OpenAPI candle parameters](https://github.com/oanda/v20-openapi/blob/master/yaml/separate/v20_instrument.yaml)
 * [OANDA candle definitions](https://developer.oanda.com/rest-live-v20/instrument-df/)
 * [ICE USDX rulebook and constant](https://www.ice.com/publicdocs/rulebooks/futures_us/15_ICE_USDX_Futures_and_Options.pdf)
@@ -151,3 +141,7 @@ research-grade validation of an edge.
 * [CFTC publication schedule](https://www.cftc.gov/MarketReports/CommitmentsofTraders/ReleaseSchedule/index.htm)
 * [Twelve Data API](https://twelvedata.com/docs) and [timezones](https://support.twelvedata.com/en/articles/5745849-timezones)
 * [Fed calendar](https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm)
+
+## Intraday chart range
+
+The private /api/intraday route retrieves only the last 24 hours of OANDA M15 midpoint candles. Incomplete candles are excluded; timestamps identify closes, 15 minutes after vendor starts. It has a 60-second per-instance success cache. The selected 1D view checks for new completed candles during the 15-second visible-tab polling loop. Daily macro overlays are omitted with an explicit message. 1W spans five daily return intervals. Intraday candles do not change the daily analysis or strict research contract.

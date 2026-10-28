@@ -30,3 +30,13 @@ input[type=range]{width:96px;accent-color:var(--g);padding:0}
 .sig{font-size:26px;font-weight:600;margin:2px 0 6px}.note{font-size:12px;color:var(--mut);margin-top:10px}
 #cam{position:absolute;top:26px;right:0;z-index:1;width:34px;height:34px;display:grid;place-items:center;background:#161818;border:1px solid var(--line);border-radius:50%;color:var(--mut);padding:0}#cam:hover{color:var(--tx)}
 @media(max-width:960px){main{grid-template-columns:1fr;padding:20px}aside{position:static}nav{padding:12px 20px}h1{font-size:32px}.stats{grid-template-columns:repeat(2,1fr)}}
+/* Data-status copy must fit the original 380px sidebar, including long source dates. */
+main>section,main>aside{min-width:0}
+#dw{table-layout:fixed;font-size:12px}
+#dw th,#dw td{overflow-wrap:anywhere;padding:8px 4px}
+nav{flex-wrap:wrap}
+@media(max-width:600px){.ch{font-size:12px}.ch th,.ch td{padding:8px 4px;overflow-wrap:anywhere}.stats{min-width:0}.stats div{min-width:0}.stats b{overflow-wrap:anywhere}}
+
+.f b.up{color:var(--g)}.f b.dn{color:var(--r)}
+
+.quote-meta{display:flex;flex-wrap:wrap;gap:4px 14px;margin-bottom:8px;line-height:1.6}.rng{column-gap:10px;row-gap:8px;margin-top:16px}.rng button{min-height:36px;padding:8px 14px}.rng.o{margin-top:16px;column-gap:8px}

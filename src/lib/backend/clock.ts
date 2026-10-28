@@ -3,16 +3,16 @@ export function dateOnly(value: string): string {
   return value;
 }
 export const addDays = (day: string, n: number) => new Date(Date.parse(dateOnly(day)) + n * 86400000).toISOString().slice(0, 10);
-export function nyDate(time: string | Date): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(time));
-}
+const nyDayFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' });
+const nyOffsetFormatter = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', timeZoneName: 'longOffset' });
+export function nyDate(time: string | Date): string { return nyDayFormatter.format(new Date(time)); }
 // Offset iteration handles DST without fixed UTC assumptions. Hours used here
 // (00:00, 17:00) are never in the spring/fall ambiguous interval.
 export function nyTime(day: string, hour = 17): string {
   const target = Date.parse(`${dateOnly(day)}T${String(hour).padStart(2, '0')}:00:00Z`);
   let utc = target;
   for (let i = 0; i < 3; i++) {
-    const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', timeZoneName: 'longOffset' }).formatToParts(utc);
+    const parts = nyOffsetFormatter.formatToParts(utc);
     const offset = parts.find(p => p.type === 'timeZoneName')!.value.match(/GMT([+-])(\d{2}):(\d{2})/)!;
     const minutes = (Number(offset[2]) * 60 + Number(offset[3])) * (offset[1] === '+' ? 1 : -1);
     utc = target - minutes * 60000;

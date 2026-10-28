@@ -1,63 +1,27 @@
-# Acceptance record — 2026-10-28 (Africa/Nairobi)
+# Verification — dashboard/live-data repair (2026-10-28, Africa/Nairobi)
 
-## Verified
+## Completed checks
 
-* All required credentials are present in local, gitignored `.env.local`; checks
-  report presence only. FRED's supplied key successfully returned normalized
-  observations, including initial releases. The earlier handover's 28-character
-  concern does not apply to the currently saved, successfully checked key.
-* Real responses and normalization passed for Supabase, FRED DFII10, OANDA
-  practice XAU_USD, Twelve Data XAU/USD, CFTC dataset 72hh-3qpy / gold 088691.
-* All six FRED series and all seven OANDA instruments ingested successfully for
-  October 2026. 133 immutable OANDA bars were stored in the acceptance window.
-  Re-running that OANDA chunk inserted zero observations and zero raw bars.
-  FRED and CFTC unchanged snapshots also inserted zero observations on rerun.
-* Twelve Data ingestion is operational, but its returned sample included a
-  conflicting duplicate daily date. Conflicting duplicate observations are now
-  quarantined and flagged, rather than arbitrarily selecting a value. It remains
-  a qualified cross-check with a different daily session, never the primary feed.
-* CPI/NFP October dates and CPI/NFP/FOMC March 2024 dates were ingested from
-  official source responses/calendar links. The March check inserted three
-  sourced events. No guessed dates are used by the engine.
-* Six migrations are applied in Goldquant. Local filenames match the remote
-  ledger; generated TypeScript types reflect the applied schema.
-* Security advisor: no findings after revoking public execution of the existing
-  auto-RLS helper and restricting every new RPC/table. Performance advisor:
-  informational unused indexes only on the new workload; retained FK/lookup
-  indexes are intentional. No performance warning/error was reported.
-* All 31 tests pass. PostgreSQL property tests execute the actual migrations and as-of RPC over
-  randomized observations/cutoffs and compare an independent selection oracle.
-  Additional tests cover DST/calendar, A-B-A vintages, immutability and grants,
-  rate reservations, alert reconciliation, trial idempotency/ownership, vendor
-  fixtures, sanitization, private ETags and API access controls.
-* Production build and TypeScript checks passed. Production HTTP checks passed
-  for the page, synthetic contract, ETag/304, invalid as-of, protected health and
-  trials, rejected cross-origin session creation, and 404 for `.env.local`.
-* Production dependency audit: no known vulnerabilities. Vitest was advanced
-  from the handover version to a patched exact version after npm audit found
-  advisories. The tools are used through batch tests, not a public test UI server.
+- Fetched `origin/main` after merged PRs #1/#2 and created `codex/restore-dashboard-live-data` from `db39949`.
+- Inspected all four specified files at reference commit `e9e27a5d740a1aeb62305357ae0a4d670713cc6a`. Kept the complete original panel/section/canvas/control hierarchy and design. Changes to markup are limited to accurate data wording and Refresh; added 1W/1D chart range controls at the user's request. CSS additions contain sidebar overflow and narrow-screen tables.
+- Local credentials were checked for presence without disclosure. At the user's request, set only local REAL_DATA_ENABLED/DATA_LICENSE_APPROVED to true. Confirmed both existing Vercel flags are true for production/preview; allow-list exists in both targets. CRON_SECRET remains empty locally and scheduling remains disabled.
+- Real OANDA practice account pricing returned HTTP 200 for XAU_USD, including top bid/ask, tradeable status, and price timestamp. Independently checked daily candle response semantics: timestamps are starts; complete/incomplete flags distinguish prior closes from current-session candles.
+- Bounded live history retrieval completed in 3.5 seconds after reusing timezone formatters: 389 completed gold/FX bars from 2025-04-28 through 2026-10-27. FRED initial releases support 108 contiguous eligible model bars from 2026-05-29. Earlier oil availability gaps remain explicit, not imputed. Real yields, VIX, CFTC current context, FRED event dates and a qualified Twelve Data cross-check returned successfully. The latest oil observation was 2026-10-20 with vintage-day-end availability 2026-10-22; it is not a live oil quote.
+- 49 tests passed, covering immutable SQL/as-of properties, auth/allow-list/session, real quote semantics, provider retrieval without usable storage, missing factors, publication timing, model suffixes, bounded caches/deduplication, original DOM engine rendering, refresh/poll disposal and real M15 intraday parsing. Synthetic values are used only as labeled test fixtures, not runtime fallbacks.
+- TypeScript and the complete production build pass, including the intraday and login routes. Regenerated the prepared Edge bundle because shared ingestion helpers changed; no Edge deployment or scheduling activation occurred.
+- In-app browser: unauthenticated local navigation redirected to `/login?next=%2F`. After the user signed in, the full dashboard rendered with current midpoint/timestamp, oil overlay, populated factor/correlation/bias/context panels, and panel-local research limitation.
+- Browser DOM geometry after the overflow fix: document scrollWidth=974, viewport clientWidth=974, sidebar=380px, Data wiring table=338px. No page-level horizontal overflow at that width. Visual screenshot confirmed the original two-column layout, black/green palette and all overlay colors.
 
-## Deliberately pending / not claimed
+- Browser checked real 1D rendering (completed M15 midpoint candles) and clean-load 1W → 1D → 1Y switching; weekly return and intraday labels changed correctly. Range handlers left stale by editing the imperative markup under Fast Refresh were resolved by a clean reload. No browser errors were recorded in the clean-load check.
+- Rendered the four reference files in an isolated local comparison harness with an explicitly labeled synthetic fixture. At the same 989px viewport, both versions have 490px/380px columns, a 40px grid gap, a 320px chart and identical font stacks. All ten panel headings and their order match. Inspected the reference screenshot against the restored local view. The header and range spacing now include the user's explicitly requested refinements. The harness never uses live credentials and is outside the repository.
+- Applied the user's subsequent refinements: removed the header instrument pill and provider badge; green bullish/red bearish triangles verified by computed CSS colours; readable EAT quote time with full vendor timestamp on hover; additional range/overlay spacing; removed the requested Data wiring paragraph, Event calendar row and Data status row. Failure states and relevant per-series/research limitations remain.
 
-* At initial acceptance, real-data serving remained disabled: vendor licensing approval and approved
-  Supabase Auth user UUIDs have not been supplied. The gate is implemented and
-  tested, but no operator/end-user account or production sign-in has been
-  provisioned during the initial backend work. The follow-up data-state fix adds
-  an email/password sign-in interface, never silently falls back to mock data in
-  real mode, and separates the latest real daily close from research history.
-* No six-year verified market-price archive exists in this implementation.
-  Approximately six-year chunked collection commands are supplied; only bounded
-  live acceptance windows were run. First-seen OANDA/Twelve/CFTC downloads cannot
-  populate earlier historical bars. Initial FRED releases are conservative, not
-  a reconstruction of every historical revision.
-* The database does not yet have 200 eligible core bars. The API therefore must
-  remain synthetic until eligibility is established, even if access is enabled.
-* ETF is explicitly `not_configured`; no approved source/terms or scraper.
-* Exact historical CFTC publication evidence is missing. Friday 15:30 ET is not
-  retrospectively assigned to downloaded historical values.
-* No scheduled jobs or database scheduling extensions have been activated, and
-  the Edge Function has not been deployed. The prepared generated function and
-  guarded SQL are provided for later opt-in; `CRON_SECRET` stays empty.
-* No production deployment was requested or performed. The PR is the reviewable
-  delivery. The legacy strategy and its normal/iid Deflated Sharpe approximation
-  remain unvalidated as a trading edge.
+## Remaining acceptance work
+
+- Final Vercel preview browser verification and authenticated preview flow.
+- Additional responsive-width checks. The supplied screenshots document the refinement requests; the original pre-backend screenshot has not been supplied.
+- Authenticated preview refresh/session-expiry/failure flows. Further acceptance work is left pending at the user's request to finish the refinements and update the PR for now.
+
+## Preserved limitations
+
+Downloaded prices are conventional history, not certified original vintages. The strict SQL research path retains its 200 eligible bar requirement. Backtests are withheld for default downloaded history; no verified performance claim or automatic unverified trial is emitted. CFTC historical release evidence remains absent; only current downloaded context is shown. ETF is unavailable. Optional missing sources do not hide the application. No production merge or deployment has been performed.
