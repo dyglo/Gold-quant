@@ -4,14 +4,16 @@ function dateOnly(value) {
   return value;
 }
 var addDays = (day, n) => new Date(Date.parse(dateOnly(day)) + n * 864e5).toISOString().slice(0, 10);
+var nyDayFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" });
+var nyOffsetFormatter = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", timeZoneName: "longOffset" });
 function nyDate(time) {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(time));
+  return nyDayFormatter.format(new Date(time));
 }
 function nyTime(day, hour = 17) {
   const target = Date.parse(`${dateOnly(day)}T${String(hour).padStart(2, "0")}:00:00Z`);
   let utc = target;
   for (let i = 0; i < 3; i++) {
-    const parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", timeZoneName: "longOffset" }).formatToParts(utc);
+    const parts = nyOffsetFormatter.formatToParts(utc);
     const offset = parts.find((p) => p.type === "timeZoneName").value.match(/GMT([+-])(\d{2}):(\d{2})/);
     const minutes = (Number(offset[2]) * 60 + Number(offset[3])) * (offset[1] === "+" ? 1 : -1);
     utc = target - minutes * 6e4;
@@ -40,7 +42,8 @@ async function requestJson(url, init = {}, attempts = 3, beforeAttempt) {
       if (!response.ok) {
         if ((response.status === 429 || response.status >= 500) && n + 1 < attempts) {
           const retry = Number(response.headers.get("retry-after"));
-          await pause(Math.min(3e4, Math.max(500 * 2 ** n, Number.isFinite(retry) ? retry * 1e3 : 0)));
+          if (retry > 2) throw new BackendError("VENDOR_COOLDOWN");
+          await pause(Math.min(2e3, Math.max(500 * 2 ** n, Number.isFinite(retry) ? retry * 1e3 : 0)));
           continue;
         }
         const error = await response.json().catch(() => null);
@@ -62,7 +65,8 @@ async function requestJson(url, init = {}, attempts = 3, beforeAttempt) {
 
 // src/lib/backend/db.ts
 var Database = class {
-  constructor(env) {
+  constructor(env, attempts = 3) {
+    this.attempts = attempts;
     if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) throw new BackendError("DATABASE_NOT_CONFIGURED");
     const url = new URL(env.SUPABASE_URL);
     if (url.protocol !== "https:" && url.hostname !== "127.0.0.1" && url.hostname !== "localhost") throw new BackendError("DATABASE_NOT_CONFIGURED");
@@ -74,7 +78,7 @@ var Database = class {
       method,
       headers: { apikey: this.key, Authorization: `Bearer ${this.key}`, "Content-Type": "application/json", Prefer: prefer ?? "return=representation" },
       ...body === void 0 ? {} : { body: JSON.stringify(body) }
-    });
+    }, this.attempts);
   }
   async insert(table, rows) {
     return this.call(table, "POST", rows);
@@ -251,10 +255,10 @@ function oandaUrl(env, instrument, start, end) {
   const params = new URLSearchParams({ price: "M", granularity: "D", from: `${dateOnly(start)}T00:00:00Z`, to: Date.parse(requestedEnd) > Date.parse(latest) ? latest : requestedEnd, dailyAlignment: "17", alignmentTimezone: "America/New_York", smooth: "false" });
   return `https://${host}/v3/instruments/${instrument}/candles?${params}`;
 }
-async function fetchOanda(env, instrument, start, end) {
-  return requestJson(oandaUrl(env, instrument, start, end), { headers: { Authorization: `Bearer ${required(env, "OANDA_API_TOKEN")}`, "Accept-Datetime-Format": "RFC3339" } });
+async function fetchOanda(env, instrument, start, end, attempts = 3) {
+  return requestJson(oandaUrl(env, instrument, start, end), { headers: { Authorization: `Bearer ${required(env, "OANDA_API_TOKEN")}`, "Accept-Datetime-Format": "RFC3339" } }, attempts);
 }
-async function fetchFred(env, id, start, end, initial) {
+async function fetchFred(env, id, start, end, initial, attempts = 3) {
   const params = new URLSearchParams({
     api_key: required(env, "FRED_API_KEY"),
     file_type: "json",
@@ -267,23 +271,23 @@ async function fetchFred(env, id, start, end, initial) {
     sort_order: "asc",
     limit: "100000"
   });
-  const result = await requestJson(`https://api.stlouisfed.org/fred/series/observations?${params}`);
+  const result = await requestJson(`https://api.stlouisfed.org/fred/series/observations?${params}`, {}, attempts);
   if (result.count && result.count > result.observations.length) throw new BackendError("FRED_PAGINATION_REQUIRED");
   return result;
 }
-async function fetchTwelve(env, start, end, reserve) {
+async function fetchTwelve(env, start, end, reserve, attempts = 3) {
   const params = new URLSearchParams({ apikey: required(env, "TWELVE_DATA_API_KEY"), symbol: "XAU/USD", interval: "1day", start_date: dateOnly(start), end_date: dateOnly(end), outputsize: "5000", order: "ASC", timezone: "UTC" });
-  return requestJson(`https://api.twelvedata.com/time_series?${params}`, {}, 3, reserve);
+  return requestJson(`https://api.twelvedata.com/time_series?${params}`, {}, attempts, reserve);
 }
-async function fetchCftc(start, end) {
+async function fetchCftc(start, end, attempts = 3) {
   const params = new URLSearchParams({ "$where": `cftc_contract_market_code='088691' AND report_date_as_yyyy_mm_dd between '${dateOnly(start)}T00:00:00' and '${dateOnly(end)}T23:59:59'`, "$order": "report_date_as_yyyy_mm_dd ASC", "$limit": "1000" });
-  const rows = await requestJson(`https://publicreporting.cftc.gov/resource/72hh-3qpy.json?${params}`);
+  const rows = await requestJson(`https://publicreporting.cftc.gov/resource/72hh-3qpy.json?${params}`, {}, attempts);
   if (!Array.isArray(rows) || rows.length === 1e3) throw new BackendError("CFTC_INVALID_OR_TRUNCATED");
   return rows;
 }
-async function fetchReleaseDates(env, release) {
+async function fetchReleaseDates(env, release, attempts = 3) {
   const params = new URLSearchParams({ api_key: required(env, "FRED_API_KEY"), file_type: "json", release_id: String(release), realtime_start: "1776-07-04", realtime_end: "9999-12-31", include_release_dates_with_no_data: "true", limit: "1000", sort_order: "desc" });
-  return requestJson(`https://api.stlouisfed.org/fred/release/dates?${params}`);
+  return requestJson(`https://api.stlouisfed.org/fred/release/dates?${params}`, {}, attempts);
 }
 
 // src/lib/backend/ingest.ts

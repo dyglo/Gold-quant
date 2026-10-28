@@ -34,7 +34,7 @@ export function assemble(rows: BarRow[], asOf: string) {
   // The legacy engine cannot handle partially-null context arrays. A series
   // missing anywhere in the selected history is wholly unavailable, never zero.
   for (const k of OPTIONAL) data[k] = usable.every(r => Number.isFinite(r.points[k]?.value)) ? usable.map(r => r.points[k].value) : null;
-  if (data.gold.some(x => x <= 0) || data.dxy.some(x => x <= 0) || data.oil.some(x => x <= 0)) throw new BackendError('NONPOSITIVE_LOG_RETURN_INPUT');
+  if (data.gold.some(x => x <= 0) || data.dxy!.some(x => x <= 0) || data.oil!.some(x => x <= 0)) throw new BackendError('NONPOSITIVE_LOG_RETURN_INPUT');
   const lastBar: Record<string, Point | null> = Object.fromEntries([...CORE, ...OPTIONAL].map(k => [k, last.points[k] ?? null]));
   const flags: { series: string; code: string; from?: string }[] = [...CORE, ...OPTIONAL].flatMap(k => {
     const p = last.points[k];
@@ -51,7 +51,7 @@ export async function liveSeries(env: Env, asOf: string) {
   const quality = await db.call<unknown[]>(`data_quality_flags?select=series_id,code,severity,obs_date,details&created_at=lte.${encodeURIComponent(asOf)}&order=created_at.desc&limit=100`);
   return { data: assembled.data, label: 'Live · Supabase (conservative point-in-time alignment)', meta: {
     lastBar: assembled.lastBar, sources: catalog, qualityFlags: [...assembled.flags, ...quality], asOf,
-    fingerprint: await digest(assembled.data), events, availability: 'Conservative vintage dates / first retrieval; exact historical vendor timestamps are not implied.',
+    fingerprint: await digest(assembled.data), events, researchEligible: true, availability: 'Conservative vintage dates / first retrieval; exact historical vendor timestamps are not implied.',
     lagDefaults: { gold: 0, dxy: 0, oil: 0, ry: 0, etf: 0, cot: 0, vix: 0 },
   } };
 }

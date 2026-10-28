@@ -12,11 +12,10 @@ beforeEach(() => {
   vi.stubEnv('SUPABASE_URL', 'https://fixture.supabase.co'); vi.stubEnv('SUPABASE_ANON_KEY', 'test-anon'); vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-secret'); vi.stubEnv('ALLOWED_USER_IDS', user);
 });
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
-it('keeps disabled real-data access synthetic with metadata and no database call', async () => {
-  const fetch = vi.fn(); vi.stubGlobal('fetch', fetch);
-  const r = await series(new Request('https://app.test/api/series')); const b = await r.json();
-  expect(b.label).toMatch(/^Synthetic/); expect(b.data.dates.length).toBe(b.data.gold.length); expect(b.meta.qualityFlags[0].code).toBe('REAL_DATA_ACCESS_DISABLED');
-  expect(fetch).not.toHaveBeenCalled(); expect(r.headers.get('cache-control')).toContain('private');
+it('never serves a synthetic substitute when real-data access is disabled', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json({id:user})));
+  const r=await series(new Request('https://app.test/api/series',{headers:{authorization:'Bearer test.token.value'}}));
+  expect(r.status).toBe(503);expect(await r.json()).toEqual({error:'REAL_DATA_ACCESS_DISABLED'});
 });
 it('rejects malformed as-of and protects health/trial writes', async () => {
   expect((await series(new Request('https://app.test/api/series?as_of=2024-02-30'))).status).toBe(400);

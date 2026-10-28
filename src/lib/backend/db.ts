@@ -6,7 +6,7 @@ import type { Env } from './types';
 export class Database {
   readonly url: string;
   private readonly key: string;
-  constructor(env: Env) {
+  constructor(env: Env, private readonly attempts = 3) {
     if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) throw new BackendError('DATABASE_NOT_CONFIGURED');
     const url = new URL(env.SUPABASE_URL);
     if (url.protocol !== 'https:' && url.hostname !== '127.0.0.1' && url.hostname !== 'localhost') throw new BackendError('DATABASE_NOT_CONFIGURED');
@@ -17,7 +17,7 @@ export class Database {
     return requestJson<T>(`${this.url}/rest/v1/${path}`, {
       method, headers: { apikey: this.key, Authorization: `Bearer ${this.key}`, 'Content-Type': 'application/json', Prefer: prefer ?? 'return=representation' },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    });
+    }, this.attempts);
   }
   async insert<T>(table: string, rows: unknown): Promise<T> { return this.call(table, 'POST', rows); }
   async now(): Promise<string> { return this.call('rpc/ingestion_clock', 'POST', {}); }

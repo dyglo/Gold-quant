@@ -16,8 +16,8 @@ npm run build
 
 `data:check` verifies real response shapes for Supabase, FRED, OANDA XAU_USD,
 Twelve Data XAU/USD and CFTC. It consumes a Twelve Data budget slot. The OANDA
-account ID is retained for future account/instrument entitlements; public candle
-requests themselves only use the token. Practice/live is selected explicitly
+account ID is used for current account pricing; instrument candle
+requests themselves use the token. Practice/live is selected explicitly
 with `OANDA_ENV` (defaults to practice).
 
 ## Database
@@ -62,8 +62,8 @@ npm run data:backfill -- --start 2020-10-28 --end 2026-10-28
 `etf` returns `not_configured`. No source is scraped. Backfill is private data
 collection, **not certification of historical tradable information**; see DATA.md.
 OANDA/Twelve/CFTC downloaded history is first-seen and cannot retrospectively
-populate historical bars. The dashboard requires 200 eligible bars and will
-therefore still use synthetic data initially even after a six-year backfill.
+populate historical bars. The dashboard independently downloads provider history immediately. Only strict
+research requires 200 eligible bars; downloaded history never becomes synthetic.
 Historical original-vintage market archives require additional approved evidence.
 
 Twelve Data reservations are serialized in Postgres, count every HTTP attempt,
@@ -82,20 +82,20 @@ not claimed as valid data. Stop/resume backfills by chunk if vendor limits apply
 
 ## Access gate and deployment
 
-The synthetic dashboard is public. Protected APIs never release raw market data
+The dashboard redirects unauthenticated visitors to `/login`. Protected APIs never release raw market data
 without an access token verified against Supabase Auth **and** a server-side UUID
 allow-list. Authenticated but unapproved users and anonymous Auth users are denied.
 Neither JWT decoding nor user-editable metadata is trusted. Deployment protection
-is not assumed. Leave these defaults until the operator approves access/licensing:
+is not assumed. For authorized accounts configure the following gates; keep credentials private:
 
 ```
-REAL_DATA_ENABLED=false
-DATA_LICENSE_APPROVED=false
+REAL_DATA_ENABLED=true
+DATA_LICENSE_APPROVED=true
 ALLOWED_USER_IDS=
 CRON_SECRET=
 ```
 
-To enable private real-data use later:
+For approved private real-data use (already configured in this workspace):
 
 1. Confirm each vendor's permitted use, storage and redistribution scope; record
    approval externally. Select an approved ETF provider separately.
@@ -108,7 +108,7 @@ To enable private real-data use later:
 3. Set both `REAL_DATA_ENABLED=true` and `DATA_LICENSE_APPROVED=true` only after
    approval; deploy using Vercel's Next.js/Node 24 preset and server env variables.
    Never expose the service-role key to browser code.
-4. Open the dashboard and sign in using the app user's email/password. The server
+4. Open `/login` and sign in using the app user's email/password. The server
    exchanges those credentials with Supabase Auth, verifies the UUID allow-list,
    and sets an HttpOnly, SameSite=Strict cookie. Passwords are never stored by the
    application or returned in responses. Supabase rate limits apply; the password
@@ -120,17 +120,23 @@ To enable private real-data use later:
    the token/allow-list and sets an HttpOnly, SameSite=Strict cookie, Secure in
    production, with a one-hour maximum lifetime. Reload the dashboard. Tokens
    expire at their own JWT expiry even if the cookie remains. Repeat after token
-   refresh; no custom refresh-token store is implemented. The sign-in form appears
+   refresh; no custom refresh-token store is implemented. The browser redirects to `/login`
    again after session expiry. DELETE `/api/session` logs this browser out.
 5. Check `/api/health`, `/api/series`, and `/api/trials` as an authorized user.
    Unauthenticated enabled series requests return 401, unapproved users 403.
-   Authorized empty/stale/unavailable research requests return an explicit 503
-   error. The browser does not replace failures with a seed-7 mock sample. It may
-   show `/api/quote`'s latest stored completed OANDA daily close independently,
-   clearly labeled with its candle timestamp. Charts/signals/backtests stay absent
-   until eligible history exists. Missing/stale quotes remain unavailable.
-   `?as_of=` requires an ISO timestamp with timezone and may not be in the future.
-   With both enabling switches off, the server still provides a labeled demo.
+   Explicit research requests with unavailable evidence return sanitized 503 errors.
+   Default history retrieves provider bars even if the price archive is empty.
+   Current OANDA bid/ask midpoint pricing is served separately by `/api/quote`.
+   Quote polling is 15s while the tab is visible; server TTL is 10s. History TTL
+   is 300s. Refresh requests both routes; unexpired caches may be reused. Caches
+   and request coalescing are per instance, never a shared/public HTTP cache.
+   Twelve Data always requires a successful global SQL budget reservation.
+   Missing optional providers do not block gold charts. Oil overlays leave null
+   gaps where publication evidence or freshness is insufficient. The factor model
+   uses the latest contiguous eligible sample and labels its size. Backtests
+   remain unavailable until strict original-vintage requirements are satisfied.
+   `?as_of=` requires an ISO timestamp with timezone and cannot be in the future.
+   Disabled real-data switches return an error, never a synthetic substitute.
    Adding environment variables requires a new Vercel deployment to take effect.
 
 Protected responses use private caches, vary on Authorization/Cookie, and use
