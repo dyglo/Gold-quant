@@ -375,6 +375,10 @@ export type Database = {
       data_health: { Args: never; Returns: Json }
       ingestion_clock: { Args: never; Returns: string }
       job_health: { Args: never; Returns: Json }
+      reconcile_quality_alerts: {
+        Args: { flags: Json; job_name: string }
+        Returns: undefined
+      }
       reserve_twelve_request: { Args: never; Returns: boolean }
       series_as_of: {
         Args: {
