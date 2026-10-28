@@ -18,11 +18,12 @@ export default function Login() {
         return;
       }
       const next = new URLSearchParams(window.location.search).get('next') ?? '/';
-      window.location.assign(next.startsWith('/') && !next.startsWith('//') && !next.includes('\\') && !next.startsWith('/login') ? next : '/');
+      const target = new URL(next, window.location.origin);
+      window.location.assign(target.origin === window.location.origin && !target.pathname.startsWith('/login') && !target.pathname.startsWith('/api/') ? target.pathname + target.search + target.hash : '/');
     } catch { setError('Sign-in is unavailable. Please retry.'); }
     finally { (form.elements.namedItem('password') as HTMLInputElement).value = ''; setBusy(false); }
   }
-  return <><nav><b>Gold Quant</b><div className="s">XAU/USD</div></nav><main><section><div className="card" style={{ maxWidth: 440 }}>
+  return <><nav><b>Gold Quant</b></nav><main><section><div className="card" style={{ maxWidth: 440 }}>
     <h2>Sign in to Gold Quant</h2><p className="mut">Private market dashboard</p>
     <form onSubmit={signIn}>
       <label className="f">Email<input name="email" type="email" autoComplete="username" required style={{ width: '70%' }} /></label>

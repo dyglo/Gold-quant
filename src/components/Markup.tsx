@@ -2,11 +2,11 @@
 export default function Markup() {
   return (
     <>
-<nav><b>Gold Quant</b><div className="s">XAU/USD</div><span className="bdg" id="src"></span><button className="btn" id="nw">Refresh</button><label className="btn">Import CSV<input type="file" id="fi" accept=".csv" hidden /></label></nav>
+<nav><b>Gold Quant</b><button className="btn" id="nw" style={{marginLeft:"auto"}}>Refresh</button><label className="btn">Import CSV<input type="file" id="fi" accept=".csv" hidden /></label></nav>
 <main>
 <section>
  <div style={{"position":"relative"}}><button id="cam" title="Download chart as PNG" aria-label="Download chart as PNG"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></button>
- <div className="mut">XAU/USD · <span id="dt"></span></div>
+ <div className="mut quote-meta"><span>XAU/USD</span><span id="dt"></span></div>
  <h1 id="pv"></h1><div className="d" id="d1"></div><div className="d sp" id="d2"></div></div>
  <canvas id="chart"></canvas>
  <div className="rng" id="rng"></div>
@@ -39,7 +39,7 @@ export default function Markup() {
   <table className="ch" id="bt"><thead><tr><th></th><th>Train</th><th>Test</th></tr></thead><tbody></tbody></table>
   <table className="ch" id="sx" style={{"marginTop":"10px"}}><thead><tr><th>Stress (test period)</th><th>Sharpe</th><th>t</th></tr></thead><tbody></tbody></table>
   <canvas id="eq" style={{"height":"120px","marginTop":"10px"}}></canvas><div className="note" id="vd"></div><div className="note" id="tl"></div></div>
- <div className="card"><h2>Data wiring</h2><table className="ch" id="dw"><thead><tr><th>Series</th><th>Last bar</th><th>Lag (d)</th><th>Status</th></tr></thead><tbody></tbody></table><div className="note">Daily candles close at 17:00 New York. Macro inputs use conservative initial-release timing. Downloaded price history is descriptive; strict research requires original-vintage evidence. Missing sources are excluded.</div></div>
+ <div className="card"><h2>Data wiring</h2><div className="note" id="src" role="status"></div><table className="ch" id="dw"><thead><tr><th>Series</th><th>Last bar</th><th>Lag (d)</th><th>Status</th></tr></thead><tbody></tbody></table></div>
 </aside>
 </main>
     </>

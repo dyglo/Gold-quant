@@ -8,15 +8,19 @@
 - Real OANDA practice account pricing returned HTTP 200 for XAU_USD, including top bid/ask, tradeable status, and price timestamp. Independently checked daily candle response semantics: timestamps are starts; complete/incomplete flags distinguish prior closes from current-session candles.
 - Bounded live history retrieval completed in 3.5 seconds after reusing timezone formatters: 389 completed gold/FX bars from 2025-04-28 through 2026-10-27. FRED initial releases support 108 contiguous eligible model bars from 2026-05-29. Earlier oil availability gaps remain explicit, not imputed. Real yields, VIX, CFTC current context, FRED event dates and a qualified Twelve Data cross-check returned successfully. The latest oil observation was 2026-10-20 with vintage-day-end availability 2026-10-22; it is not a live oil quote.
 - 49 tests passed, covering immutable SQL/as-of properties, auth/allow-list/session, real quote semantics, provider retrieval without usable storage, missing factors, publication timing, model suffixes, bounded caches/deduplication, original DOM engine rendering, refresh/poll disposal and real M15 intraday parsing. Synthetic values are used only as labeled test fixtures, not runtime fallbacks.
-- TypeScript and production build passed before the final added intraday route; final build result is recorded below when available. Regenerated the prepared Edge bundle because shared ingestion helpers changed; no Edge deployment or scheduling activation occurred.
+- TypeScript and the complete production build pass, including the intraday and login routes. Regenerated the prepared Edge bundle because shared ingestion helpers changed; no Edge deployment or scheduling activation occurred.
 - In-app browser: unauthenticated local navigation redirected to `/login?next=%2F`. After the user signed in, the full dashboard rendered with current midpoint/timestamp, oil overlay, populated factor/correlation/bias/context panels, and panel-local research limitation.
 - Browser DOM geometry after the overflow fix: document scrollWidth=974, viewport clientWidth=974, sidebar=380px, Data wiring table=338px. No page-level horizontal overflow at that width. Visual screenshot confirmed the original two-column layout, black/green palette and all overlay colors.
+
+- Browser checked real 1D rendering (completed M15 midpoint candles) and clean-load 1W → 1D → 1Y switching; weekly return and intraday labels changed correctly. Range handlers left stale by editing the imperative markup under Fast Refresh were resolved by a clean reload. No browser errors were recorded in the clean-load check.
+- Rendered the four reference files in an isolated local comparison harness with an explicitly labeled synthetic fixture. At the same 989px viewport, both versions have 490px/380px columns, a 40px grid gap, a 320px chart and identical font stacks. All ten panel headings and their order match. Inspected the reference screenshot against the restored local view. The header and range spacing now include the user's explicitly requested refinements. The harness never uses live credentials and is outside the repository.
+- Applied the user's subsequent refinements: removed the header instrument pill and provider badge; green bullish/red bearish triangles verified by computed CSS colours; readable EAT quote time with full vendor timestamp on hover; additional range/overlay spacing; removed the requested Data wiring paragraph, Event calendar row and Data status row. Failure states and relevant per-series/research limitations remain.
 
 ## Remaining acceptance work
 
 - Final Vercel preview browser verification and authenticated preview flow.
-- Responsive width checks and visual comparison against an isolated runnable reference snapshot. The newly supplied screenshot documents the overflow regression; the original pre-backend screenshot has not been supplied.
-- Final 1D/1W browser interaction and refresh checks after the latest implementation.
+- Additional responsive-width checks. The supplied screenshots document the refinement requests; the original pre-backend screenshot has not been supplied.
+- Authenticated preview refresh/session-expiry/failure flows. Further acceptance work is left pending at the user's request to finish the refinements and update the PR for now.
 
 ## Preserved limitations
 

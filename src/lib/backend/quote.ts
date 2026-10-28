@@ -3,7 +3,7 @@ import type { Env } from './types';
 
 export type CurrentQuote = {
   price: number; bid: number; ask: number; time: string; fetchedAt: string;
-  source: 'OANDA'; basis: 'bid/ask midpoint'; status: 'current' | 'stale' | 'market_closed';
+  source: 'OANDA'; basis: 'bid/ask midpoint'; status: 'current' | 'stale' | 'not_tradeable';
   instrument: 'XAU_USD'; cached?: boolean;
 };
 export async function currentQuote(env: Env): Promise<CurrentQuote> {
@@ -14,9 +14,10 @@ export async function currentQuote(env: Env): Promise<CurrentQuote> {
     `https://${host}/v3/accounts/${encodeURIComponent(env.OANDA_ACCOUNT_ID)}/pricing?instruments=XAU_USD`,
     { headers: { Authorization: `Bearer ${env.OANDA_API_TOKEN}`, 'Accept-Datetime-Format': 'RFC3339' } }, 2);
   const p = result.prices?.find(p => p.instrument === 'XAU_USD');
+  if (!p || !['tradeable', 'non-tradeable'].includes(p.status)) throw new BackendError('QUOTE_UNAVAILABLE');
   const bid = Number(p?.bids?.[0]?.price), ask = Number(p?.asks?.[0]?.price);
   const age = Date.now() - Date.parse(p?.time ?? '');
   if (!(bid > 0 && ask >= bid) || !Number.isFinite(ask) || !Number.isFinite(age) || age < -5000) throw new BackendError('INVALID_QUOTE');
   return { price: (bid + ask) / 2, bid, ask, time: p!.time, fetchedAt: new Date().toISOString(), source: 'OANDA', basis: 'bid/ask midpoint',
-    status: p!.status !== 'tradeable' ? 'market_closed' : age > 120000 ? 'stale' : 'current', instrument: 'XAU_USD' };
+    status: p!.status !== 'tradeable' ? 'not_tradeable' : age > 120000 ? 'stale' : 'current', instrument: 'XAU_USD' };
 }
