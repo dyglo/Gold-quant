@@ -39,10 +39,12 @@
 
 ## Deliberately pending / not claimed
 
-* Real-data serving remains disabled: vendor licensing approval and approved
+* At initial acceptance, real-data serving remained disabled: vendor licensing approval and approved
   Supabase Auth user UUIDs have not been supplied. The gate is implemented and
   tested, but no operator/end-user account or production sign-in has been
-  provisioned during this work.
+  provisioned during the initial backend work. The follow-up data-state fix adds
+  an email/password sign-in interface, never silently falls back to mock data in
+  real mode, and separates the latest real daily close from research history.
 * No six-year verified market-price archive exists in this implementation.
   Approximately six-year chunked collection commands are supplied; only bounded
   live acceptance windows were run. First-seen OANDA/Twelve/CFTC downloads cannot

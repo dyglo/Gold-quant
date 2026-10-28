@@ -99,26 +99,39 @@ To enable private real-data use later:
 
 1. Confirm each vendor's permitted use, storage and redistribution scope; record
    approval externally. Select an approved ETF provider separately.
-2. Create/invite the permitted Supabase Auth user(s), configure their auth method,
+2. Create the permitted Supabase Auth user(s) under Goldquant → Authentication →
+   Users → Add user → Create user, set their password directly in the dashboard,
+   and confirm their email through the appropriate operator/verification process.
+   A Supabase dashboard account does not create an app Auth user. Configure their auth method,
    and set `ALLOWED_USER_IDS` to their UUIDs on the server. Keep sign-up restricted
    operationally. Tokens are verified against Auth on every protected API request.
 3. Set both `REAL_DATA_ENABLED=true` and `DATA_LICENSE_APPROVED=true` only after
    approval; deploy using Vercel's Next.js/Node 24 preset and server env variables.
    Never expose the service-role key to browser code.
-4. An authenticated API client uses `Authorization: Bearer <user access token>`.
-   For the unchanged dashboard, POST `{ "accessToken": "<user access token>" }`
+4. Open the dashboard and sign in using the app user's email/password. The server
+   exchanges those credentials with Supabase Auth, verifies the UUID allow-list,
+   and sets an HttpOnly, SameSite=Strict cookie. Passwords are never stored by the
+   application or returned in responses. Supabase rate limits apply; the password
+   grant is never automatically retried. An authenticated API client can also use
+   `Authorization: Bearer <user access token>`. Advanced clients may still POST
+   `{ "accessToken": "<user access token>" }`
    as JSON to `/api/session` from the same origin using a trusted client (e.g.
    browser developer tools after the chosen Supabase sign-in flow). It verifies
    the token/allow-list and sets an HttpOnly, SameSite=Strict cookie, Secure in
    production, with a one-hour maximum lifetime. Reload the dashboard. Tokens
    expire at their own JWT expiry even if the cookie remains. Repeat after token
-   refresh; no custom refresh-token store is implemented. DELETE `/api/session`
-   logs this browser out. No login UI or visual redesign has been added.
+   refresh; no custom refresh-token store is implemented. The sign-in form appears
+   again after session expiry. DELETE `/api/session` logs this browser out.
 5. Check `/api/health`, `/api/series`, and `/api/trials` as an authorized user.
    Unauthenticated enabled series requests return 401, unapproved users 403.
-   Authorized empty/stale/unavailable DB requests return a clearly labeled
-   synthetic fallback. `?as_of=` requires an ISO timestamp with timezone and may
-   not be in the future. Historical fallback is not a historical synthetic sample.
+   Authorized empty/stale/unavailable research requests return an explicit 503
+   error. The browser does not replace failures with a seed-7 mock sample. It may
+   show `/api/quote`'s latest stored completed OANDA daily close independently,
+   clearly labeled with its candle timestamp. Charts/signals/backtests stay absent
+   until eligible history exists. Missing/stale quotes remain unavailable.
+   `?as_of=` requires an ISO timestamp with timezone and may not be in the future.
+   With both enabling switches off, the server still provides a labeled demo.
+   Adding environment variables requires a new Vercel deployment to take effect.
 
 Protected responses use private caches, vary on Authorization/Cookie, and use
 ETags only after authorization. Default `asOf` is floored to a minute to bound

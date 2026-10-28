@@ -4,7 +4,7 @@ import { trialRecorder } from '../data/trials';
 import { digest } from '../backend/http';
 // Lift-and-shift of the prototype script. mount() wires the engine and the DOM by id.
 // Phase 2 (see README): split into typed engine modules and React components.
-export function mount(api: { synth: (seed: number) => any; load: () => Promise<{ data: any; label: string }> }) {
+export function mount(api: { load: () => Promise<{ data: any; label: string }> }) {
 const $=id=>document.getElementById(id),fm=(v,d=2)=>"$"+v.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
 const W=60,THR=[1,1.5,2,2.5],RG={"1M":22,"3M":63,"6M":126,"1Y":250,ALL:1e9},FN=["DXY","Oil (WTI)","Real yield (Δ)"],FK=["dxy","oil","ry"];
 let SYN=true,TRI={},KEY=new Map(),LAG={gold:0,dxy:0,oil:0,ry:1,etf:1,cot:3,vix:0};const st={rng:"1Y",on:[true,true,true],inv:false};let D,A={},hov=null,seed=7,BT={},META={},PERSISTED=null,FINGERPRINT='',TRIAL_TEXT='';
@@ -125,7 +125,7 @@ function backtest(persist=true){const sp=+$("spl").value/100;$("tsv").textConten
  $("sgd").textContent="Residual z "+z.toFixed(2)+" vs threshold ±"+thS.toFixed(1)+(on?" (fade the unexplained move)":"")}
 ["spl","cb","bm","dl"].forEach(i=>$(i).oninput=backtest);
 function all(label){calc();tabs();main();KEY=new Map(["gold","dxy","oil","ry","etf","cot","vix"].filter(k=>D[k]).map(k=>[D[k],k]));SYN=!/^(Imported|Live)/.test(label);corrTable();model();attr();ctx();evt();bias();wire(label);backtest();alerts();$("src").className="bdg";$("src").textContent=label}
-$("nw").onclick=async()=>{D=api.synth(seed=seed*7+3);META={};FINGERPRINT=await digest(D);all("Synthetic sample data (not market data) · seed "+seed)};
+$("nw").textContent='Refresh';$("nw").onclick=()=>location.reload();
 $("fi").onchange=e=>{const f=e.target.files[0];e.target.value="";if(!f)return;f.text().then(t=>{const L=t.trim().split(/\r?\n/),h=L[0].toLowerCase().split(",").map(x=>x.trim()),ix=re=>h.findIndex(x=>re.test(x)),c={d:ix(/date/),g:ix(/gold|xau/),x:ix(/dxy|dollar/),o:ix(/oil|wti/),y:ix(/real|tips|yield|ry/)},bad=m=>{$("src").className="bdg e";$("src").textContent=m};
  if(Object.values(c).some(v=>v<0))return bad("CSV needs columns: date, gold, dxy, oil, realyield");
  const R=L.slice(1).map(l=>l.split(",")).filter(r=>[c.g,c.x,c.o,c.y].every(k=>isFinite(parseFloat(r[k]))));
