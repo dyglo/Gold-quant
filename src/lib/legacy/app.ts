@@ -1,11 +1,16 @@
 // @ts-nocheck
 /* eslint-disable */
+import { trialRecorder } from '../data/trials';
+import { digest } from '../backend/http';
 // Lift-and-shift of the prototype script. mount() wires the engine and the DOM by id.
 // Phase 2 (see README): split into typed engine modules and React components.
 export function mount(api: { synth: (seed: number) => any; load: () => Promise<{ data: any; label: string }> }) {
 const $=id=>document.getElementById(id),fm=(v,d=2)=>"$"+v.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
 const W=60,THR=[1,1.5,2,2.5],RG={"1M":22,"3M":63,"6M":126,"1Y":250,ALL:1e9},FN=["DXY","Oil (WTI)","Real yield (Δ)"],FK=["dxy","oil","ry"];
-let SYN=true,TRI={},KEY=new Map(),LAG={gold:0,dxy:0,oil:0,ry:1,etf:1,cot:3,vix:0};const st={rng:"1Y",on:[true,true,true],inv:false};let D,A={},hov=null,seed=7,BT={};
+let SYN=true,TRI={},KEY=new Map(),LAG={gold:0,dxy:0,oil:0,ry:1,etf:1,cot:3,vix:0};const st={rng:"1Y",on:[true,true,true],inv:false};let D,A={},hov=null,seed=7,BT={},META={},PERSISTED=null,FINGERPRINT='',TRIAL_TEXT='';
+const recorder=trialRecorder(n=>{PERSISTED=n;if(D)backtest(false)});
+recorder.load();
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const cor=(a,b,s,e)=>{const n=e-s;let ma=0,mb=0;for(let i=s;i<e;i++){ma+=a[i];mb+=b[i]}ma/=n;mb/=n;let x=0,y=0,z=0;for(let i=s;i<e;i++){const p=a[i]-ma,q=b[i]-mb;x+=p*q;y+=p*p;z+=q*q}return x/Math.sqrt(y*z||1)};
 function ols(s,e){const n=e-s,k=3,m=[0,0,0];let my=0;for(let i=s;i<e;i++)my+=A.G[i];my/=n;
  for(let j=0;j<k;j++){for(let i=s;i<e;i++)m[j]+=A.F[j][i];m[j]/=n}
@@ -51,8 +56,7 @@ function attr(){const n=A.n,f=ols(n-W,n),p=ols(Math.max(0,n-250),n),rg=(s,r2)=>{
  $("at").tBodies[0].innerHTML=FN.map((k,j)=>row(k,f.sh[j],p.sh[j],COL[j])).join("")+row("Unexplained",1-f.r2,1-p.r2,"#9aa0a0")}
 const Phi=x=>{const t=1/(1+.2316419*Math.abs(x)),d=.3989423*Math.exp(-x*x/2),p=d*t*(.3193815+t*(-.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));return x>0?1-p:p},invn=q=>{const p=1-q,t=Math.sqrt(-2*Math.log(p));return t-(2.515517+.802853*t+.010328*t*t)/(1+1.432788*t+.189269*t*t+.001308*t*t*t)};
 const pctl=(a,v)=>a.filter(x=>x<=v).length/a.length,rgl=sh=>{const r2=sh.reduce((a,b)=>a+b,0),m=Math.max(...sh);return 1-r2>.9||m<.05?"Idiosyncratic":FN[sh.indexOf(m)].split(" ")[0]+"-driven"};
-function evs(){const e=[],d=D.dates;let lm="";for(let i=1;i<d.length;i++){const m=d[i].slice(0,7),day=+d[i].slice(8,10),wd=new Date(d[i]+"T00:00:00Z").getUTCDay();
- if(m!=lm&&day>=13){e.push([i,"CPI"]);lm=m}if(wd==5&&day<=7)e.push([i,"NFP"]);if(i%42==0)e.push([i,"FOMC"])}return e}
+function evs(){const index=new Map(D.dates.map((d,i)=>[d,i]));return(META.events||[]).filter(e=>index.has(e.event_date)).map(e=>[index.get(e.event_date),e.kind])}
 const spark=a=>{const r=a.filter((_,i)=>i%5==0),mn=Math.min(...r),mx=Math.max(...r);return`<svg width="110" height="28"><polyline points="${r.map((v,i)=>(i/(r.length-1)*110).toFixed(1)+","+(26-(v-mn)/(mx-mn||1)*24).toFixed(1)).join(" ")}" fill="none" stroke="#6cb4ff" stroke-width="1.5"/></svg>`};
 function ctx(){$("cx").tBodies[0].innerHTML=[["ETF holdings (t)","etf",v=>v.toFixed(0)],["CFTC net long","cot",v=>(v/1000).toFixed(0)+"k"],["VIX","vix",v=>v.toFixed(1)]].map(([nm,k,f])=>{const a=D[k];if(!a)return`<tr><td>${nm}</td><td colspan="4" style="color:var(--mut)">No data in CSV</td></tr>`;
  const n=a.length,c=a[n-1]-a[n-21];return`<tr><td>${nm}</td><td>${f(a[n-1])}</td><td class="${c>=0?"up":"dn"}">${c>=0?"+":""}${f(c)}</td><td>${(pctl(a,a[n-1])*100).toFixed(0)}th</td><td>${spark(a.slice(-250))}</td></tr>`}).join("")}
@@ -90,7 +94,7 @@ function alerts(){const n=A.n,L=[],a=rgl(ols(n-W,n).sh),b=rgl(ols(Math.max(0,n-2
  const age=Math.round((Date.now()-new Date(D.dates[n-1]+"T00:00:00Z"))/864e5);if(isFinite(age)&&age>4)L.push(["wn","Stale data","Last bar "+D.dates[n-1]+", "+age+" days old"]);
  ["etf","cot","vix"].forEach(k=>{if(!D[k])L.push(["wn","Missing series",k.toUpperCase()+" not loaded"])});
  $("al").innerHTML=L.length?L.map(([c,t,d])=>`<div class="f"><span><b style="color:var(--tx)">${t}</b> <small style="color:#666">${d}</small></span><b class="${c=="dn"?"dn":""}" style="${c=="wn"?"color:#f5a623":""}">●</b></div>`).join(""):`<div class="mut">No active alerts.</div>`}
-function wire(lb){const imp=lb.startsWith("Imported");$("dw").tBodies[0].innerHTML=[["XAU/USD","gold"],["DXY","dxy"],["WTI oil","oil"],["Real yield (10y TIPS)","ry"],["ETF holdings","etf"],["CFTC net long","cot"],["VIX","vix"]].map(([nm,k])=>`<tr><td>${nm}</td><td>${D.dates[D.dates.length-1]}</td><td><input data-k="${k}" type="number" min="0" max="10" value="${LAG[k]}" style="width:46px;background:#161818;border:1px solid var(--line);border-radius:6px;padding:3px 6px;text-align:right;color:var(--tx)"></td><td class="${D[k]?"":"dn"}">${D[k]?(imp?"CSV":lb.startsWith("Live")?"Live":"Synthetic placeholder"):"Missing"}</td></tr>`).join("")+`<tr><td>Event calendar</td><td colspan="3">Derived from dates</td></tr>`}
+function wire(lb){const imp=lb.startsWith("Imported");$("dw").tBodies[0].innerHTML=[["XAU/USD","gold"],["DXY","dxy"],["WTI oil","oil"],["Real yield (10y TIPS)","ry"],["ETF holdings","etf"],["CFTC net long","cot"],["VIX","vix"]].map(([nm,k])=>`<tr><td>${nm}</td><td title="${esc(META.lastBar?.[k]?.available_at||'')}">${esc(META.lastBar?.[k]?.obs_date||D.dates[D.dates.length-1])}</td><td><input data-k="${k}" type="number" min="0" max="10" value="${LAG[k]}" style="width:46px;background:#161818;border:1px solid var(--line);border-radius:6px;padding:3px 6px;text-align:right;color:var(--tx)"></td><td class="${D[k]?"":"dn"}">${D[k]?(imp?"CSV":lb.startsWith("Live")?"Live · PIT aligned":"Synthetic placeholder"):"Missing"}</td></tr>`).join("")+`<tr><td>Event calendar</td><td colspan="3">${META.events?.length?'Sourced FRED / Fed calendar':'Not loaded · no inferred dates'}</td></tr><tr><td>Data status</td><td colspan="3">${esc((META.qualityFlags||[]).map(f=>f.code).filter(Boolean).join(' · ')||'No quality flags')} ${META.asOf?'· as of '+esc(META.asOf):''}</td></tr>`}
 $("dw").onchange=e=>{const k=e.target.dataset.k;if(!k)return;LAG[k]=Math.max(0,+e.target.value||0);bias();alerts();backtest()};
 function corrTable(){const n=A.n;$("ct").tBodies[0].innerHTML=FN.map((nm,j)=>{
  const cell=(c,w)=>{const sg=Math.abs(c)>1.96/Math.sqrt(w);return`<td title="${sg?"Significant at 95%":"Not distinguishable from zero"}" style="${sg?`background:rgba(${c>0?"0,200,5":"255,80,0"},${Math.min(.5,Math.abs(c)*.6).toFixed(2)})`:"color:#555"}">${c.toFixed(2)}</td>`},
@@ -102,14 +106,15 @@ function model(){const n=A.n,f=ols(n-W,n),z=A.z[n-1];
 const stat=(p,q)=>{const n=p.length,m=p.reduce((a,b)=>a+b,0)/n,sd=Math.sqrt(p.reduce((a,b)=>a+(b-m)**2,0)/(n-1))||1e-9,act=p.filter((x,i)=>q[i]!=0),w=act.filter(x=>x>0),l=act.filter(x=>x<=0),mean=a=>a.reduce((x,y)=>x+y,0)/(a.length||1);
  return{n,tr:act.length,win:act.length?w.length/act.length:0,b:w.length&&l.length?mean(w)/Math.abs(mean(l)):0,sh:m/sd*Math.sqrt(252),t:m/sd*Math.sqrt(n),m}};
 function run(thr,cm=1,d=0){const pnl=[],pos=[],cost=(+$("cb").value||0)/1e4*cm;let prev=0;for(let t=W+2+d;t<A.n;t++){const z=A.z[t-1-d],q=Math.abs(z)>thr?-Math.sign(z):0;pnl.push(q*A.G[t]-cost*Math.abs(q-prev));pos.push(q);prev=q}return{pnl,pos}}
-function backtest(){const sp=+$("spl").value/100;$("tsv").textContent=Math.round(sp*100)+"%";let best=null;const bd=+$("dl").value||0;
+function backtest(persist=true){const sp=+$("spl").value/100;$("tsv").textContent=Math.round(sp*100)+"%";let best=null;const bd=+$("dl").value||0;
  ($("bm").value=="bias"?[null]:THR).forEach(th=>{const r=th==null?runBias(1,bd):run(th,1,bd),c=Math.floor(r.pnl.length*sp),tr=stat(r.pnl.slice(0,c),r.pos.slice(0,c));if(!best||tr.sh>best.tr.sh)best={th,r,c,tr}});
  const te=stat(best.r.pnl.slice(best.c),best.r.pos.slice(best.c));BT={...best,te};
  const ev=(cm,d)=>{const r=best.th==null?runBias(cm,d):run(best.th,cm,d),c=Math.floor(r.pnl.length*sp);return stat(r.pnl.slice(c),r.pos.slice(c))},f2=v=>isFinite(v)?v.toFixed(2):"n/a";
  $("sx").tBodies[0].innerHTML=[["Base",1,bd],["Costs ×3",3,bd],["+1 day late",1,bd+1],["Both",3,bd+1]].map(([nm,cm,d])=>{const s=ev(cm,d);return`<tr><td>${nm}</td><td class="${s.sh>0?"up":"dn"}">${f2(s.sh)}</td><td>${f2(s.t)}</td></tr>`}).join("");
  const key=[D.dates.length,D.gold[D.gold.length-1].toFixed(2),$("bm").value,$("spl").value,$("cb").value,bd,JSON.stringify(LAG)].join("|");TRI[key]=$("bm").value=="bias"?1:THR.length;
- const N=Object.values(TRI).reduce((a,b)=>a+b,0),T=te.n,sr=te.sh/Math.sqrt(252),gm=.5772,sr0=N>1?(1/Math.sqrt(T))*((1-gm)*invn(1-1/N)+gm*invn(1-1/(N*Math.E))):0,dsr=Phi((sr-sr0)*Math.sqrt(T-1));
- $("tl").innerHTML="Trials this session: <b>"+N+"</b> · Deflated Sharpe: <b>"+f2(dsr)+"</b> (needs above 0.95). Counts every rule, setting and data sample tried since the page loaded.";
+ const N=Math.max(PERSISTED||0,Object.values(TRI).reduce((a,b)=>a+b,0)),T=te.n,sr=te.sh/Math.sqrt(252),gm=.5772,sr0=N>1?(1/Math.sqrt(T))*((1-gm)*invn(1-1/N)+gm*invn(1-1/(N*Math.E))):0,dsr=Phi((sr-sr0)*Math.sqrt(T-1));
+ $("tl").innerHTML=(PERSISTED===null?'Session candidates (persistence unavailable): ':'Persistent candidates: ')+'<b>'+N+'</b> · Deflated Sharpe (normal/iid approximation): <b>'+f2(dsr)+'</b>. Correlated trials and non-normal returns require further adjustment.';
+ if(persist&&FINGERPRINT){const p=best.r.pnl.slice(best.c),mean=te.m,sd=Math.sqrt(p.reduce((s,x)=>s+(x-mean)**2,0)/p.length)||1;recorder.record({config:{mode:$("bm").value,split:sp,costBps:+$("cb").value,delay:bd,lags:{...LAG},thresholds:THR},dataFingerprint:FINGERPRINT,results:{train:best.tr,test:te,threshold:best.th},deflatedSharpeInputs:{sampleSize:T,dailySharpe:sr,candidateCountAtEvaluation:N,skew:p.reduce((s,x)=>s+((x-mean)/sd)**3,0)/p.length,kurtosis:p.reduce((s,x)=>s+((x-mean)/sd)**4,0)/p.length,benchmark:sr0,approximation:'normal iid; trial Sharpe variance assumed 1/T; candidates correlated'},candidateCount:$("bm").value==='bias'?1:THR.length})}
  const row=(k,f)=>`<tr><td>${k}</td><td>${f(best.tr)}</td><td>${f(te)}</td></tr>`;
  $("bt").tBodies[0].innerHTML=row(best.th==null?"Rule":"Threshold (z)",()=>best.th==null?"Bias ±0.25":best.th.toFixed(1))+row("Active days",s=>s.tr)+row("Win %",s=>(s.win*100).toFixed(0)+"%")+row("Avg win ÷ avg loss",s=>s.b.toFixed(2))+row("Sharpe (ann.)",s=>s.sh.toFixed(2))+row("t-stat",s=>s.t.toFixed(2))+(best.r.g?(()=>{const sp2=(a,b)=>{const u=[],d=[];a.forEach((x,i)=>{if(b[i]>0)u.push(x);if(b[i]<0)d.push(x)});const m=q=>q.reduce((s,x)=>s+x,0)/(q.length||1);return((m(u)-m(d))*1e4).toFixed(1)},c=best.c,g=best.r.g,p=best.r.pos;return`<tr><td>Bull − bear (bps/day)</td><td>${sp2(g.slice(0,c),p.slice(0,c))}</td><td>${sp2(g.slice(c),p.slice(c))}</td></tr>`})():"");
  let c=0;const eq=best.r.pnl.map(v=>(c+=v)*100);plot($("eq"),[{a:eq,c:eq[eq.length-1]>=0?"#00c805":"#ff5000"}],{hl:[0],vl:best.c});
@@ -120,13 +125,13 @@ function backtest(){const sp=+$("spl").value/100;$("tsv").textContent=Math.round
  $("sgd").textContent="Residual z "+z.toFixed(2)+" vs threshold ±"+thS.toFixed(1)+(on?" (fade the unexplained move)":"")}
 ["spl","cb","bm","dl"].forEach(i=>$(i).oninput=backtest);
 function all(label){calc();tabs();main();KEY=new Map(["gold","dxy","oil","ry","etf","cot","vix"].filter(k=>D[k]).map(k=>[D[k],k]));SYN=!/^(Imported|Live)/.test(label);corrTable();model();attr();ctx();evt();bias();wire(label);backtest();alerts();$("src").className="bdg";$("src").textContent=label}
-$("nw").onclick=()=>{D=api.synth(seed=seed*7+3);all("Synthetic sample data (not market data) · seed "+seed)};
+$("nw").onclick=async()=>{D=api.synth(seed=seed*7+3);META={};FINGERPRINT=await digest(D);all("Synthetic sample data (not market data) · seed "+seed)};
 $("fi").onchange=e=>{const f=e.target.files[0];e.target.value="";if(!f)return;f.text().then(t=>{const L=t.trim().split(/\r?\n/),h=L[0].toLowerCase().split(",").map(x=>x.trim()),ix=re=>h.findIndex(x=>re.test(x)),c={d:ix(/date/),g:ix(/gold|xau/),x:ix(/dxy|dollar/),o:ix(/oil|wti/),y:ix(/real|tips|yield|ry/)},bad=m=>{$("src").className="bdg e";$("src").textContent=m};
  if(Object.values(c).some(v=>v<0))return bad("CSV needs columns: date, gold, dxy, oil, realyield");
  const R=L.slice(1).map(l=>l.split(",")).filter(r=>[c.g,c.x,c.o,c.y].every(k=>isFinite(parseFloat(r[k]))));
  if(R.length<200)return bad("Need at least 200 valid rows");
- D={dates:R.map(r=>r[c.d].trim()),gold:R.map(r=>+r[c.g]),dxy:R.map(r=>+r[c.x]),oil:R.map(r=>+r[c.o]),ry:R.map(r=>+r[c.y])};[["etf",/etf/],["cot",/cot|position/],["vix",/vix/]].forEach(([k,re])=>{const q=ix(re);D[k]=q>=0?R.map(r=>+r[q]):null});all("Imported CSV · "+R.length+" days")})};
+ D={dates:R.map(r=>r[c.d].trim()),gold:R.map(r=>+r[c.g]),dxy:R.map(r=>+r[c.x]),oil:R.map(r=>+r[c.o]),ry:R.map(r=>+r[c.y])};[["etf",/etf/],["cot",/cot|position/],["vix",/vix/]].forEach(([k,re])=>{const q=ix(re);D[k]=q>=0?R.map(r=>+r[q]):null});META={};FINGERPRINT='';digest(D).then(h=>{FINGERPRINT=h;all("Imported CSV · "+R.length+" days")})})};
 addEventListener("resize",()=>{if(!D)return;main();backtest();plotZ()});
 function plotZ(){const z=A.z.slice(-250);plot($("rz"),[{a:z,c:"#6cb4ff"}],{min:-4,max:4,hl:[BT.th||2,-(BT.th||2),0]})}
-api.load().then(r=>{D=r.data;all(r.label);plotZ()});
+api.load().then(async r=>{D=r.data;META=r.meta||{};FINGERPRINT=await digest(D);if(r.label.startsWith('Live'))LAG={...LAG,...META.lagDefaults};all(r.label);plotZ()});
 }

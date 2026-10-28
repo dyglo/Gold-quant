@@ -1,13 +1,27 @@
-import { NextResponse } from "next/server";
 import { synth } from "@/lib/data/synthetic";
+import { authorize, dataEnabled } from '@/lib/backend/access';
+import { parseAsOf } from '@/lib/backend/clock';
+import { BackendError, digest } from '@/lib/backend/http';
+import { liveSeries } from '@/lib/backend/series';
+import { errorResponse, privateJson } from '@/lib/backend/responses';
 
 export const dynamic = "force-dynamic";
 
-// WIRE YOUR API HERE (server side, so keys stay private; see .env.example).
-// Return { data: { dates, gold, dxy, oil, ry, etf, cot, vix }, label: "Live · <vendor>" }.
-// Daily bars, equal length, oldest first, ry in percent, etf in tonnes, cot in contracts.
-// etf, cot, vix may be null if you do not have them yet.
-export async function GET() {
-  // const key = process.env.MARKET_DATA_API_KEY;
-  return NextResponse.json({ data: synth(7), label: "Synthetic sample data (not market data) · seed 7" });
+export async function GET(request: Request) {
+  let asOf: string;
+  try { asOf = parseAsOf(new URL(request.url).searchParams.get('as_of')); }
+  catch { return errorResponse(new BackendError('INVALID_AS_OF', 400)); }
+  let reason = 'REAL_DATA_ACCESS_DISABLED';
+  if (dataEnabled()) {
+    try { await authorize(request); }
+    catch (error) { return errorResponse(error); }
+    try { return await privateJson(request, await liveSeries(process.env, asOf)); }
+    catch (error) { reason = error instanceof BackendError ? error.code : 'DATABASE_UNAVAILABLE'; }
+  }
+  const data = synth(7);
+  // A synthetic fallback is never historical evidence, even with as_of set.
+  return privateJson(request, { data, label: 'Synthetic sample data (not market data) · seed 7', meta: {
+    lastBar: {}, sources: ['synthetic'], qualityFlags: [{ code: reason }], asOf,
+    events: [], historicalRequestApplied: false, fingerprint: await digest(data),
+  } });
 }

@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+const base = process.env.SMOKE_URL ?? 'http://127.0.0.1:3100';
+const page = await fetch(base); assert.equal(page.status, 200);
+const response = await fetch(`${base}/api/series?as_of=2026-10-27T23:00:00Z`);
+assert.equal(response.status, 200);
+const body = await response.json();
+assert.match(body.label, /^Synthetic/);
+assert.equal(body.data.dates.length, body.data.gold.length);
+assert.equal(body.meta.historicalRequestApplied, false);
+assert.match(response.headers.get('cache-control'), /private/);
+const cached = await fetch(`${base}/api/series?as_of=2026-10-27T23:00:00Z`, { headers: { 'If-None-Match': response.headers.get('etag') } });
+assert.equal(cached.status, 304);
+assert.equal((await fetch(`${base}/api/series?as_of=bad`)).status, 400);
+assert.equal((await fetch(`${base}/api/health`)).status, 401);
+assert.equal((await fetch(`${base}/api/trials`)).status, 401);
+assert.equal((await fetch(`${base}/api/session`, { method: 'POST', headers: { Origin: 'https://other.test', 'Content-Type': 'application/json' }, body: '{}' })).status, 403);
+assert.equal((await fetch(`${base}/.env.local`)).status, 404);
+console.log('Production HTTP smoke checks passed: page, synthetic contract, ETag, input validation, protected routes, session origin, credential-file denial.');
