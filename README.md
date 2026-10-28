@@ -10,33 +10,48 @@ npm run build   # production build check
 ```
 Runtime: Node.js 24.x (`.nvmrc`: 24.22.1), Next.js 16.4.3, React/React DOM 19.2.9, TypeScript 5.6.3. Development and production builds use default Turbopack. Use `npm ci` for reproducible installs.
 
-The official `npx @next/codemod@canary upgrade latest` completed and the v16 upgrade guide was reviewed. No application-source changes were needed. `/api/series` remains dynamic and serves synthetic data. The legacy engine, components, and styles are preserved.
+The dashboard preserves the legacy engine and design system. A Supabase backend now provides append-only observations, point-in-time queries, vendor ingestion, sourced events, quality diagnostics and persistent experiments. Public/default operation remains explicitly synthetic until access, licensing and data eligibility pass.
 
 Validation: `npm run build` passes; the dev page and `/api/series` return HTTP 200. In restricted sandboxes, use `npm run dev -- --hostname 127.0.0.1` to avoid network-interface enumeration restrictions.
 
-## Wire real data
-1. Edit `src/app/api/series/route.ts` (server side, put keys in `.env.local`, see `.env.example`).
-2. Return `{ data: { dates, gold, dxy, oil, ry, etf, cot, vix }, label: "Live · <vendor>" }`: daily, equal length, oldest first, `ry` in percent, `etf` in tonnes, `cot` in contracts (`etf`, `cot`, `vix` may be `null`).
-3. A label starting with `Live` or `Imported` removes the "synthetic" warnings.
-4. In the page, set each series' lag (days) in **Data wiring** to your vendor's real release lag (CFTC is weekly: forward-fill it to daily first).
-5. Replace `evs()` (CPI/NFP/FOMC dates are guessed from the calendar) with a real calendar.
+## Backend
+
+Keep credentials in gitignored `.env.local`; use `.env.example` for variable names. Never overwrite an existing credential file. `CRON_SECRET` intentionally stays empty: scheduling is disabled.
+
+```bash
+npm run data:check
+npm run data:ingest
+npm run data:backfill -- --start 2020-10-28 --end 2026-10-28
+npm test
+npm run build
+```
+
+See [data conventions and limitations](docs/DATA.md), [setup/access/backfill/scheduling runbook](docs/RUNBOOK.md), and [verification evidence](docs/VERIFICATION.md). A historical price download does not prove its historical availability; first-seen feeds cannot populate bars before collection. Live serving requires at least 200 eligible bars and fresh required series. ETF remains not configured.
+
+`GET /api/series?as_of=<ISO timestamp>` preserves `{ data: {dates,gold,dxy,oil,ry,etf,cot,vix}, label, meta }`. The service-only SQL function checks both the requested cutoff and every historical NY 17:00 close. Live UI lags default to zero. Metadata carries per-series last values/availability, sources, flags, calendar and a data fingerprint. Empty/stale/unavailable history returns the existing Synthetic label.
+
+Real data requires **both** enabling/licensing switches plus verified Supabase Auth and a server UUID allow-list. `/api/trials` (GET/POST) and `/api/health` are protected independently. `/api/session` provides the unchanged dashboard an HttpOnly access-token cookie. No Vercel protection is assumed; do not enable data until licensed use and users are approved.
 
 Data checklist before trusting results: point-in-time data, futures roll handling (ratio-adjust, use returns, check signals around roll dates), spot vs COMEX choice, close-time alignment across series.
 
 ## Layout
 ```
-src/app/            layout, page, /api/series (data seam), globals.css
+src/app/            layout, page, protected APIs, globals.css
 src/components/     Dashboard (client), Markup (static markup, generated)
-src/lib/data/       synthetic.ts, provider.ts
+src/lib/data/       synthetic.ts, provider.ts, trials.ts
+src/lib/backend/    vendors, normalization, ingestion, quality, clock, DB/security
+supabase/           migrations, disabled Edge/scheduling preparation
+tests/              vendor fixtures, PostgreSQL properties, API/access integration
 src/lib/legacy/     app.ts: the prototype engine + DOM code, lifted as-is
 ```
 
 ## Roadmap (phase 2)
 - Split `legacy/app.ts` into typed modules (stats, factor model, bias, backtest, events, alerts) with unit tests, then turn each panel into a React component.
-- Persist the trial log to disk or a DB (it resets on reload today), and add an experiment history.
-- Auth, scheduled refresh, notification delivery for alerts.
+- Approve archival availability evidence and vendor licensing; select an ETF provider.
+- Add a sign-in interface if needed; activate scheduling only after an explicit decision.
+- Calibrate quality thresholds and implement notification delivery for persistent alerts.
 
 ## Deploy
-Import the GitHub repository in Vercel with the Next.js preset and Node.js 24.x. The synthetic-data deployment needs no environment variables. `MARKET_DATA_API_KEY` is only a placeholder for the future real-data integration.
+Import the GitHub repository in Vercel with the Next.js preset and Node.js 24.x. The synthetic-data deployment needs no environment variables. Follow the runbook for private data deployment; no schedules are activated by builds or migrations.
 
 Bias weights, thresholds and the regime heuristic are placeholders, not validated. Results on synthetic data are not market results.
