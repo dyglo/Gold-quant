@@ -16,7 +16,7 @@ export async function GET(request: Request) {
     try { await authorize(request); }
     catch (error) { return errorResponse(error); }
     try { return await privateJson(request, await liveSeries(process.env, asOf)); }
-    catch (error) { reason = error instanceof BackendError ? error.code : 'DATABASE_UNAVAILABLE'; }
+    catch (error) { return errorResponse(error instanceof BackendError ? error : new BackendError('DATABASE_UNAVAILABLE')); }
   }
   const data = synth(7);
   // A synthetic fallback is never historical evidence, even with as_of set.

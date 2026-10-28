@@ -78,7 +78,13 @@ explicitly marked in metadata. Live UI release lags are zero because the server
 has already aligned availability; these data are not same-day synchronized
 closing quotes. Historical requests cannot see observations collected later.
 The server returns a contiguous suffix or synthetic fallback, never a hybrid of
-real and synthetic series. A fallback sample is explicitly unrelated to `as_of`.
+real and synthetic series. Enabled real-data mode returns explicit unavailable
+errors instead of synthetic fallbacks. Disabled mode is an explicit demo,
+unrelated to `as_of`; its UI badge is `Demo data · not market prices`. The browser
+never generates a synthetic sample after an API error. `/api/quote` is a separate,
+authenticated latest-daily-close display from complete OANDA raw bars. It obeys
+retrieval/close cutoffs and a five-day freshness limit, needs no 200-bar history,
+and is never used to bypass research eligibility or compute a backtest.
 
 ## Session clock and calendar
 

@@ -1,4 +1,4 @@
-import { synth, type Series } from "./synthetic";
+import type { Series } from "./synthetic";
 
 export type Loaded = { data: Series; label: string; meta?: {
   lastBar?: Record<string, { obs_date: string; value: number; available_at: string } | null>;
@@ -7,12 +7,17 @@ export type Loaded = { data: Series; label: string; meta?: {
   lagDefaults?: Record<string, number>;
 } };
 
-/** Browser-side loader. Calls /api/series; falls back to synthetic data if it fails.
- *  Labels that start with "Live" or "Imported" are treated as real data (no synthetic warnings). */
+export class SeriesUnavailable extends Error {
+  constructor(public code: string, public status: number) { super(code); }
+}
+/** An API failure is an unavailable state, never permission to fabricate prices. */
 export async function loadSeries(): Promise<Loaded> {
+  let r: Response;
   try {
-    const r = await fetch("/api/series");
-    if (r.ok) return (await r.json()) as Loaded;
-  } catch {}
-  return { data: synth(7), label: "Synthetic sample data (not market data) · seed 7" };
+    r = await fetch('/api/series', { cache: 'no-store' });
+  } catch { throw new SeriesUnavailable('CONNECTION_FAILED', 503); }
+  const body = await r.json().catch(() => null);
+  if (!r.ok) throw new SeriesUnavailable(typeof body?.error === 'string' ? body.error : 'DATA_UNAVAILABLE', r.status);
+  if (!body?.data?.dates?.length || typeof body.label !== 'string') throw new SeriesUnavailable('INVALID_DATA_RESPONSE', 503);
+  return { ...body, label: body.label.startsWith('Synthetic') ? 'Demo data · not market prices' : body.label };
 }

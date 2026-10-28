@@ -71,9 +71,9 @@ it('serves authorized eligible history exclusively through the as-of RPC', async
   expect(b.label).toMatch(/^Live/); expect(b.data.dates.length).toBe(dates.length);
   expect(b.data.etf).toBeNull(); expect(b.meta.lagDefaults.cot).toBe(0); expect(b.meta.fingerprint).toHaveLength(64);
 });
-it('returns a sanitized synthetic fallback for an authorized database outage', async () => {
+it('returns a sanitized unavailable error instead of a fake price for an authorized database outage', async () => {
   vi.stubEnv('REAL_DATA_ENABLED', 'true'); vi.stubEnv('DATA_LICENSE_APPROVED', 'true');
   vi.stubGlobal('fetch', vi.fn(async (url: string) => url.endsWith('/auth/v1/user') ? Response.json({ id: user }) : Response.json({ message: 'private database text' }, { status: 403 })));
   const response = await series(new Request('https://app.test/api/series', { headers: { authorization: 'Bearer test.token.value' } }));
-  const b = await response.json(); expect(b.label).toMatch(/^Synthetic/); expect(JSON.stringify(b)).not.toContain('private database text');
+  const b = await response.json(); expect(response.status).toBe(503); expect(b.data).toBeUndefined(); expect(JSON.stringify(b)).not.toContain('private database text');
 });
