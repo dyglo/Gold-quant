@@ -1,0 +1,16 @@
+{
+  "fred": { "observations": [
+    { "date": "2024-03-08", "value": "1.85", "realtime_start": "2024-03-11" },
+    { "date": "2024-03-11", "value": ".", "realtime_start": "2024-03-12" }
+  ] },
+  "oanda": { "instrument": "XAU_USD", "granularity": "D", "candles": [
+    { "time": "2024-03-07T22:00:00.000000000Z", "complete": true, "volume": 1234, "mid": { "o": "2150", "h": "2190", "l": "2145", "c": "2180" } },
+    { "time": "2024-03-10T21:00:00.000000000Z", "complete": false, "volume": 20, "mid": { "o": "2180", "h": "2190", "l": "2170", "c": "2185" } }
+  ] },
+  "twelve": { "meta": { "symbol": "XAU/USD", "interval": "1day" }, "values": [
+    { "datetime": "2024-03-08", "close": "2178" },
+    { "datetime": "2024-03-07", "close": "2150" }
+  ] },
+  "cftc": [ { "cftc_contract_market_code": "088691", "report_date_as_yyyy_mm_dd": "2024-03-05T00:00:00.000", "m_money_positions_long_all": "150000", "m_money_positions_short_all": "40000" } ],
+  "releaseDates": { "release_dates": [ { "date": "2024-03-08" } ] }
+}
