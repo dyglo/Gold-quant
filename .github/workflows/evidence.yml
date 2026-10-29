@@ -1,0 +1,31 @@
+name: Daily prospective evidence
+on:
+  schedule:
+    - cron: '30 22 * * 1-5'
+  workflow_dispatch:
+concurrency:
+  group: prospective-evidence
+  cancel-in-progress: false
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+      OANDA_API_TOKEN: ${{ secrets.OANDA_API_TOKEN }}
+      OANDA_ENV: ${{ secrets.OANDA_ENV }}
+      TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run data:ingest
+      - run: npx tsx scripts/evidence.ts snapshot
+      - run: npx tsx scripts/evidence.ts daily
+      - run: npx tsx scripts/evidence.ts outcomes
+      - run: npx tsx scripts/evidence.ts verify

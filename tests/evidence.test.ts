@@ -1,0 +1,11 @@
+import {expect,it} from 'vitest';
+import fc from 'fast-check';
+import {canonical,sha256,verifyChain} from '../src/lib/backend/chain';
+import {worstGrade} from '../src/lib/backend/evidence';
+import {score} from '../src/lib/backend/model';
+import {spearman,permutationNull,walkForward,informationCoefficient} from '../src/lib/stats';
+it('matches reference Spearman values including tied ranks',()=>{expect(spearman([1,2,3,4,5],[5,6,7,8,7])).toBeCloseTo(.8207826816681233);expect(spearman([1,2,3],[3,2,1])).toBe(-1);expect(spearman([1,1,1],[1,2,3])).toBeNull();});
+it('seeded permutations reproduce and purges labels',()=>{const x=Array.from({length:300},(_,i)=>Math.sin(i)),y=x.map((v,i)=>v+Math.cos(i));expect(permutationNull(x,y,8,99)).toEqual(permutationNull(x,y,8,99));for(const f of walkForward(1000,20))expect(f.trainEnd+20+f.embargo).toBeLessThanOrEqual(f.testStart);expect(informationCoefficient(x,y,20).status).toBe('insufficient evidence');});
+it('propagates the worst grade and blocks unknown inputs',()=>{expect(worstGrade(['A','B'])).toBe('B');expect(worstGrade(['A','C'])).toBe('C');expect(worstGrade([undefined])).toBe('C');});
+it('detects hash-chain tampering',async()=>{const payload=canonical({score:1}),prev_hash='0'.repeat(64),row={id:1,canonical_payload:payload,prev_hash,row_hash:await sha256(payload+prev_hash)};expect((await verifyChain([row])).valid).toBe(true);expect((await verifyChain([{...row,canonical_payload:canonical({score:2})}])).firstBreak).toBe(1);});
+it('score cannot use observations released after a bar close',()=>{fc.assert(fc.property(fc.integer({min:1,max:100000}),delay=>{const rows=Array.from({length:70},(_,i)=>({bar_date:'2024-01-02',bar_close:'2024-01-02T22:00:00Z',points:Object.fromEntries(['gold','dxy','oil','ry'].map(k=>[k,{value:100+i*.1,obs_date:'2024-01-02',available_at:new Date(Date.parse('2024-01-02T22:00:00Z')+delay).toISOString(),vendor:'fixture',availability_basis:'first_seen' as const,evidence_grade:'A' as const}]))}));expect(()=>score(rows)).toThrow('LOOK_AHEAD_BLOCKED');}));});

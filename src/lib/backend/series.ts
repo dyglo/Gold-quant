@@ -3,6 +3,7 @@ import { Database } from './db';
 import { BackendError, digest } from './http';
 import type { BarRow, Env, EventRow, Point } from './types';
 import type { Series } from '../data/synthetic';
+import { panelGrade } from './evidence';
 
 const CORE = ['gold', 'dxy', 'oil', 'ry'] as const;
 const OPTIONAL = ['etf', 'cot', 'vix'] as const;
@@ -24,6 +25,7 @@ export function assemble(rows: BarRow[], asOf: string) {
   while (start > 0 && CORE.every(k => Number.isFinite(rows[start - 1].points[k]?.value))) start--;
   const usable = rows.slice(start);
   if (usable.length < 200) throw new BackendError('INSUFFICIENT_POINT_IN_TIME_HISTORY');
+  if (panelGrade(usable.flatMap(r => CORE.map(k => r.points[k]))) === 'C') throw new BackendError('GRADE_C_BLOCKED_UNVERIFIED_INPUT');
   const last = usable.at(-1)!;
   if (Date.parse(asOf) - Date.parse(last.bar_close) > 5 * 86400000) throw new BackendError('STALE_BAR');
   for (const k of CORE) {

@@ -29,18 +29,22 @@ async function check() {
 async function main() {
   if (command === 'check') return check();
   if (command !== 'ingest' && command !== 'backfill') throw new BackendError('Use check, ingest, or backfill', 400);
-  const start = dateOnly(option('start', addDays(today, command === 'backfill' ? -2190 : -14)));
+  const sixYears = new Date(today); sixYears.setUTCFullYear(sixYears.getUTCFullYear() - 6);
+  const start = dateOnly(option('start', command === 'backfill' ? sixYears.toISOString().slice(0,10) : addDays(today, -14)));
   const end = dateOnly(option('end', today));
   if (Date.parse(end) - Date.parse(start) > 2192 * 86400000) throw new BackendError('RANGE_EXCEEDS_SIX_YEARS', 400);
   const selected = option('job', 'all');
   const jobs = selected === 'all' ? [...JOBS] : JOBS.filter(j => j === selected);
   if (!jobs.length) throw new BackendError('INVALID_JOB', 400);
-  for (const range of chunks(start, end)) for (const job of jobs) {
-    try { console.log(JSON.stringify({ job, ...range, ...await ingest(process.env, job, range.start, range.end) })); }
+  for (const range of chunks(start, end, command === 'backfill' ? 365 : 31)) for (const job of jobs) {
+    const db = new Database(process.env);
+    const prior = await db.call<unknown[]>(`ingestion_runs?select=id&job=eq.${job}&status=eq.success&parameters->>start=eq.${range.start}&parameters->>end=eq.${range.end}&parameters->>policy=eq.grades-v1&parameters->>historical=eq.${command === 'backfill'}&limit=1`);
+    if (command === 'backfill' && prior.length) { console.log(JSON.stringify({ job, ...range, status: 'already_complete' })); continue; }
+    try { console.log(JSON.stringify({ job, ...range, ...await ingest(process.env, job, range.start, range.end, command === 'backfill') })); }
     catch (error) {
       if (error instanceof BackendError && error.code === 'TWELVE_BUDGET_EXHAUSTED') {
-        await pause(61000);
-        console.log(JSON.stringify({ job, ...range, ...await ingest(process.env, job, range.start, range.end) }));
+        console.error('Quota reached: resume after the vendor budget resets. Completed chunks are skipped.');
+        process.exitCode = 1; return;
       } else throw error;
     }
   }

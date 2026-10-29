@@ -28,7 +28,7 @@ export class Database {
     const objects = rows as Record<string, unknown>[];
     const keys = [...new Set(objects.flatMap(row => Object.keys(row)))];
     const uniform = objects.map(row => Object.fromEntries(keys.map(key => [key, row[key] ?? null])));
-    const conflicts: Record<string, string> = { fx_bars: 'instrument,vendor,start_at,content_hash', events: 'kind,event_date,available_at', trials: 'user_id,request_key' };
+    const conflicts: Record<string, string> = { daily_snapshots:'snapshot_date,series_id',ledger_inputs:'snapshot_hash',ledger_gaps:'bar_date',ledger_outcomes:'ledger_id,horizon',research_results:'model_version,horizon,data_snapshot_hash', fx_bars: 'instrument,vendor,start_at,content_hash', events: 'kind,event_date,available_at', trials: 'user_id,request_key' };
     const target = conflicts[table] ? `${table}?on_conflict=${conflicts[table]}` : table;
     let written = 0;
     for (let i = 0; i < uniform.length; i += 250) written += (await this.call<unknown[]>(target, 'POST', uniform.slice(i, i + 250), 'resolution=ignore-duplicates,return=representation')).length;

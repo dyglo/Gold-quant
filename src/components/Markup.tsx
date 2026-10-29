@@ -28,10 +28,11 @@ export default function Markup() {
  <table className="ch" id="et"><thead><tr><th>Event</th><th>N</th><th>Mean move</th><th>Median</th><th>Avg |move| (× normal)</th><th>Up %</th></tr></thead><tbody></tbody></table>
 </section>
 <aside>
- <div className="card"><h2>Fundamental bias</h2><div className="sig" id="bl"></div><div className="mut" id="bs"></div><div id="bv" style={{"marginTop":"8px"}}></div><div className="note" id="bf"></div><div className="note" id="bx"></div><div className="note">Weights and thresholds are placeholders, not fitted or validated. Use as a filter for your chart, not an entry signal.</div></div>
+ <div className="card"><h2>Fundamental bias <small className="bdg" id="bias-grade">C</small></h2><div className="sig" id="bl"></div><div className="mut" id="bs"></div><div id="bv" style={{"marginTop":"8px"}}></div><div className="note" id="bf"></div><div className="note" id="bx"></div><div className="note">Weights and thresholds are placeholders, not fitted or validated. Use as a filter for your chart, not an entry signal.</div></div>
+ <div className="card"><h2>Live track record</h2><div className="mut" id="live-track">Awaiting first prospective close</div></div>
  <div className="card"><h2>Alerts</h2><div id="al"></div><div className="note">Evaluated on each history refresh.</div></div>
  <div className="card"><h2>Signal</h2><div className="mut">Fade rule: bet against unexplained moves</div><div className="sig" id="sg"></div><div className="mut" id="sgd"></div></div>
- <div className="card"><h2>Walk-forward backtest</h2>
+ <div className="card"><h2>Walk-forward backtest</h2><div className="note" id="unlock-status">Checking evidence</div><div id="validation-result"></div>
   <div className="f">Rule tested<select id="bm" style={{"width":"150px"}}><option value="bias">Bias score</option><option value="fade">Fade residual</option></select></div>
   <div className="f">Train share<span><b id="tsv"></b> <input type="range" id="spl" min="50" max="80" step="5" defaultValue="60" /></span></div>
   <div className="f">Cost (bps per trade)<input id="cb" type="number" min="0" step="0.5" defaultValue="1" /></div>

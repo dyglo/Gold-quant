@@ -11,6 +11,13 @@ const W=60,THR=[1,1.5,2,2.5],RG={"1D":0,"1W":6,"1M":22,"3M":63,"6M":126,"1Y":250
 let SYN=true,TRI={},KEY=new Map(),LAG={gold:0,dxy:0,oil:0,ry:1,etf:1,cot:3,vix:0};const st={rng:"1Y",on:[true,true,true],inv:false};let D,A={},hov=null,seed=7,BT={},META={},PERSISTED=null,FINGERPRINT='',TRIAL_TEXT='';
 const recorder=trialRecorder(n=>{PERSISTED=n;if(D)backtest(false)});
 recorder.load();
+async function evidence(){
+ try{const r=await fetch('/api/evidence');if(r.ok){const b=await r.json();$('unlock-status').textContent=b.snapshotDays+' days of own snapshots · '+b.reason;}}catch{}
+
+ try{const r=await fetch('/api/ledger');if(r.ok){const b=await r.json(),t=b.trackRecord[0];$('live-track').textContent=b.status+' · '+b.rows.length+' days · hit rate '+(t.hitRate==null?'—':(100*t.hitRate).toFixed(0)+'%')+' · IC '+(t.ic.ic==null?'—':t.ic.ic.toFixed(3));}}catch{}
+ try{const r=await fetch('/api/validation?horizon=1');if(r.ok){const b=await r.json();$('bias-grade').textContent=b.grade||'C';$('unlock-status').textContent+=' · '+(b.verdict||'insufficient evidence')+' · '+(b.reason||'Research, not live');if(b.ic)$('validation-result').innerHTML='<div class="note">Research, not live · Grade '+esc(b.grade)+'</div><table class="ch"><tr><th>Horizon</th><th>IC</th><th>N / effective</th></tr><tr><td>1 bar</td><td>'+esc(b.ic.ic?.toFixed(3)??'—')+'</td><td>'+b.ic.n+' / '+b.ic.effectiveSampleSize+'</td></tr></table><table class="ch"><tr><th>Bucket</th><th>Mean</th><th>N</th></tr>'+b.buckets.groups.map(g=>'<tr><td>'+esc(g.bucket)+'</td><td>'+esc(g.mean?.toFixed(4)??'—')+'</td><td>'+g.n+'</td></tr>').join('')+'</table>';}}catch{$('unlock-status').textContent='Evidence check unavailable';}
+}
+evidence();
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const cor=(a,b,s,e)=>{let n=0,ma=0,mb=0;for(let i=s;i<e;i++){if(!Number.isFinite(a[i])||!Number.isFinite(b[i]))continue;ma+=a[i];mb+=b[i];n++}if(n<3)return NaN;ma/=n;mb/=n;let x=0,y=0,z=0;for(let i=s;i<e;i++){if(!Number.isFinite(a[i])||!Number.isFinite(b[i]))continue;const p=a[i]-ma,q=b[i]-mb;x+=p*q;y+=p*p;z+=q*q}return x/Math.sqrt(y*z||1)};
 function ols(s,e){const n=e-s,k=3,m=[0,0,0];let my=0;for(let i=s;i<e;i++)my+=A.G[i];my/=n;

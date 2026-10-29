@@ -1,4 +1,4 @@
-import { addDays, dateOnly } from './clock';
+import { addDays, dateOnly, nyTime } from './clock';
 import { Database } from './db';
 import { BackendError, digest } from './http';
 import { dxyObservations, etfAdapter, goldObservations, normalizeCftc, normalizeFedCalendar, normalizeFred, normalizeOanda, normalizeReleaseDates, normalizeTwelve } from './normalizers';
@@ -9,13 +9,13 @@ import { fetchCftc, fetchFred, fetchOanda, fetchReleaseDates, fetchTwelve } from
 export const JOBS = ['fred', 'oanda', 'twelve', 'cftc', 'events', 'etf'] as const;
 export type Job = typeof JOBS[number];
 export function validateJob(job: string, start: string, end: string): asserts job is Job {
-  if (!(JOBS as readonly string[]).includes(job) || dateOnly(start) > dateOnly(end) || Date.parse(end) - Date.parse(start) > 32 * 86400000) throw new BackendError('INVALID_JOB_RANGE', 400);
+  if (!(JOBS as readonly string[]).includes(job) || dateOnly(start) > dateOnly(end) || Date.parse(end) - Date.parse(start) > 366 * 86400000) throw new BackendError('INVALID_JOB_RANGE', 400);
   if (end > new Date().toISOString().slice(0, 10)) throw new BackendError('FUTURE_RANGE', 400);
 }
-export async function ingest(env: Env, job: string, start: string, end: string) {
+export async function ingest(env: Env, job: string, start: string, end: string, historical = false) {
   validateJob(job, start, end);
   const db = new Database(env);
-  const [run] = await db.insert<{ id: string }[]>('ingestion_runs', { job, parameters: { start, end } });
+  const [run] = await db.insert<{ id: string }[]>('ingestion_runs', { job, parameters: { start, end, historical, policy: 'grades-v1' } });
   let observations: Observation[] = [], bars: FxBar[] = [], events: EventRow[] = [], flags: Flag[] = [];
   try {
     if (job === 'etf') {
@@ -56,12 +56,22 @@ export async function ingest(env: Env, job: string, start: string, end: string) 
       for (const [release, kind] of [[10, 'CPI'], [50, 'NFP']] as const) {
         events.push(...normalizeReleaseDates(await fetchReleaseDates(env, release), kind, await db.now(), `https://fred.stlouisfed.org/release?rid=${release}`));
       }
-      const response = await fetch('https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm', { signal: AbortSignal.timeout(12000) });
-      if (!response.ok) throw new BackendError('FED_CALENDAR_UNAVAILABLE');
-      events.push(...normalizeFedCalendar(await response.text(), await db.now()));
+      const urls = ['https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm'];
+      for (let year = Number(start.slice(0, 4)); year <= Math.min(2020, Number(end.slice(0, 4))); year++) urls.push(`https://www.federalreserve.gov/monetarypolicy/fomchistorical${year}.htm`);
+      for (const url of urls) {
+        const response = await fetch(url, { signal: AbortSignal.timeout(12000) });
+        if (!response.ok) throw new BackendError('FED_CALENDAR_UNAVAILABLE');
+        events.push(...normalizeFedCalendar(await response.text(), await db.now()));
+      }
       events = events.filter(e => e.event_date >= start && e.event_date <= end);
     }
     const now = await db.now();
+    // Grade B explicitly permits vendor corrections. Delay a full calendar day
+    // after the session; never pass these off as original-vintage observations.
+    if (historical && ['oanda', 'twelve'].includes(job)) observations = observations.map(o => ({ ...o,
+      available_at: new Date(Math.min(Date.parse(now), Date.parse(nyTime(addDays(o.obs_date, 1))))).toISOString(),
+      availability_basis: 'vendor_history', evidence_url: job === 'oanda' ? 'https://developer.oanda.com/rest-live-v20/instrument-ep/' : 'https://twelvedata.com/docs',
+    }));
     flags.push(...quality(observations, now));
     const groups = new Map<string, Observation[]>();
     for (const o of observations) { const k = `${o.series_id}:${o.obs_date}:${o.available_at}`; groups.set(k, [...(groups.get(k) ?? []), o]); }
@@ -88,7 +98,8 @@ export async function ingest(env: Env, job: string, start: string, end: string) 
     const barRows = await Promise.all(bars.map(async b => ({ ...b, run_id: run.id, content_hash: await digest({ ...b, available_at: undefined }) })));
     // Atomic RPC handles observation idempotency and reverted values under a
     // per-series lock; raw bars/events are immutable deduplicated evidence.
-    const written = observationRows.length ? await db.call<number>('rpc/append_observations', 'POST', { batch: observationRows }) : 0;
+    let written = 0;
+    for (let i = 0; i < observationRows.length; i += 500) written += await db.call<number>('rpc/append_observations', 'POST', { batch: observationRows.slice(i, i + 500) });
     const rawWritten = await db.append('fx_bars', barRows);
     let eventWritten = 0;
     // Events are first-seen evidence; avoid claiming a newly fetched calendar
@@ -111,10 +122,11 @@ export async function ingest(env: Env, job: string, start: string, end: string) 
     throw new BackendError(code);
   }
 }
-export function chunks(start: string, end: string): { start: string; end: string }[] {
+export function chunks(start: string, end: string, days = 31): { start: string; end: string }[] {
   dateOnly(start); dateOnly(end);
   if (start > end) throw new BackendError('INVALID_JOB_RANGE', 400);
   const ranges = [];
-  for (let day = start; day <= end;) { const to = [addDays(day, 30), end].sort()[0]; ranges.push({ start: day, end: to }); day = addDays(to, 1); }
+  if (!Number.isInteger(days) || days < 1 || days > 366) throw new BackendError('INVALID_CHUNK_SIZE', 400);
+  for (let day = start; day <= end;) { const to = [addDays(day, days - 1), end].sort()[0]; ranges.push({ start: day, end: to }); day = addDays(to, 1); }
   return ranges;
 }

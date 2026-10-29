@@ -191,3 +191,15 @@ new database are expected; retain FK/as-of indexes until workload evidence says
 otherwise. The pre-existing auto-RLS helper's public execute grants are revoked.
 
 Live acceptance and remaining limitations are recorded in `docs/VERIFICATION.md`.
+
+## Evidence operations (2026-10-29; supersedes scheduling-OFF discussion above)
+
+Annual backfill chunks contain at most 365 calendar days, far below OANDA/Twelve's 5,000 daily-point cap. Each successful job/range/policy chunk is skipped on resume. Observation batches are bounded to 500 for the atomic RPC. Twelve reservations still enforce rolling-minute and UTC-day limits; quota exhaustion stops rather than sleeping/retrying into an unknown allowance. Re-run the identical command to resume. ETF is explicitly unconfigured.
+
+`npx tsx scripts/evidence.ts register` freezes the current default model and git hash and records a trial. Freeze a new version for any weight/rule change. `snapshot` captures recently ingested evidence, `daily` records only an eligible current close, `outcomes` fills matured forward returns, and `verify` reports the first chain break. Authenticated GET /api/ledger/verify recomputes the same hash chain. An empty chain is valid but has no live evidence.
+
+The checked-in GitHub workflow schedules 22:30 UTC weekdays (18:30 NY summer / 17:30 NY winter). It must be merged into the default branch and have repository secrets configured before scheduled runs begin. Required secrets: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, FRED_API_KEY, OANDA_API_TOKEN, OANDA_ENV, TWELVE_DATA_API_KEY. Never copy secrets into logs or PR text. The workflow runs ingestion, snapshot capture, prospective ledger, matured outcomes, verification. A manual dispatch does not permit retrospective signals.
+
+If a daily job is missed, the next daily run records an immutable ledger_gaps entry. Never fill that signal retrospectively, including after fixing an outage. Retry only within the same close window. If verification fails, stop consuming live statistics, preserve all rows and investigate the first break and archived inputs. Never repair a chain by overwriting history.
+
+Remaining work: archive actual OANDA bid/ask spreads and connect executable PnL/DSR; collect comparable candidate return matrices for applicable PBO; expand UI IC table to all three horizons and apply panel-specific grades. Current workflow activation requires merge and repository secrets. These limitations must remain visible in PR acceptance.

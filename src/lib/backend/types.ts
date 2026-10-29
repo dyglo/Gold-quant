@@ -1,7 +1,8 @@
-export type Basis = 'first_seen' | 'vintage_day_end' | 'release_evidence';
+export type Basis = 'first_seen' | 'vintage_day_end' | 'release_evidence' | 'vendor_history' | 'unverified';
+export type EvidenceGrade = 'A' | 'B' | 'C';
 export type Observation = { series_id: string; obs_date: string; value: number; available_at: string; vendor: string; availability_basis: Basis; evidence_url?: string; content_hash?: string };
 export type Flag = { series_id?: string; code: string; severity: 'info' | 'warning' | 'error'; obs_date?: string; details?: Record<string, unknown> };
-export type Point = Pick<Observation, 'value' | 'obs_date' | 'available_at' | 'vendor' | 'availability_basis'>;
+export type Point = Pick<Observation, 'value' | 'obs_date' | 'available_at' | 'vendor' | 'availability_basis'> & { evidence_grade?: EvidenceGrade };
 export type BarRow = { bar_date: string; bar_close: string; points: Record<string, Point> };
 export type EventRow = { kind: 'CPI' | 'NFP' | 'FOMC'; event_date: string; event_at?: string | null; available_at: string; source_url: string };
 export type Env = Record<string, string | undefined>;

@@ -90,7 +90,7 @@ var Database = class {
     const objects = rows;
     const keys = [...new Set(objects.flatMap((row) => Object.keys(row)))];
     const uniform = objects.map((row) => Object.fromEntries(keys.map((key) => [key, row[key] ?? null])));
-    const conflicts = { fx_bars: "instrument,vendor,start_at,content_hash", events: "kind,event_date,available_at", trials: "user_id,request_key" };
+    const conflicts = { daily_snapshots: "snapshot_date,series_id", ledger_inputs: "snapshot_hash", ledger_gaps: "bar_date", ledger_outcomes: "ledger_id,horizon", research_results: "model_version,horizon,data_snapshot_hash", fx_bars: "instrument,vendor,start_at,content_hash", events: "kind,event_date,available_at", trials: "user_id,request_key" };
     const target = conflicts[table] ? `${table}?on_conflict=${conflicts[table]}` : table;
     let written = 0;
     for (let i = 0; i < uniform.length; i += 250) written += (await this.call(target, "POST", uniform.slice(i, i + 250), "resolution=ignore-duplicates,return=representation")).length;
@@ -123,7 +123,7 @@ function normalizeFred(payload, series, seen, initialRelease) {
   if (!Array.isArray(payload.observations)) throw new Error("INVALID_FRED");
   return payload.observations.filter((o) => o.value !== ".").map((o) => {
     const obs_date = dateOnly(o.date);
-    const available = initialRelease ? nyTime(addDays(dateOnly(o.realtime_start), 1), 0) : seen;
+    const available = initialRelease ? nyTime(addDays([dateOnly(o.realtime_start), obs_date].sort().at(-1), 1), 0) : seen;
     return {
       series_id: series,
       obs_date,
@@ -293,13 +293,13 @@ async function fetchReleaseDates(env, release, attempts = 3) {
 // src/lib/backend/ingest.ts
 var JOBS = ["fred", "oanda", "twelve", "cftc", "events", "etf"];
 function validateJob(job, start, end) {
-  if (!JOBS.includes(job) || dateOnly(start) > dateOnly(end) || Date.parse(end) - Date.parse(start) > 32 * 864e5) throw new BackendError("INVALID_JOB_RANGE", 400);
+  if (!JOBS.includes(job) || dateOnly(start) > dateOnly(end) || Date.parse(end) - Date.parse(start) > 366 * 864e5) throw new BackendError("INVALID_JOB_RANGE", 400);
   if (end > (/* @__PURE__ */ new Date()).toISOString().slice(0, 10)) throw new BackendError("FUTURE_RANGE", 400);
 }
-async function ingest(env, job, start, end) {
+async function ingest(env, job, start, end, historical = false) {
   validateJob(job, start, end);
   const db = new Database(env);
-  const [run] = await db.insert("ingestion_runs", { job, parameters: { start, end } });
+  const [run] = await db.insert("ingestion_runs", { job, parameters: { start, end, historical, policy: "grades-v1" } });
   let observations = [], bars = [], events = [], flags = [];
   try {
     if (job === "etf") {
@@ -338,12 +338,22 @@ async function ingest(env, job, start, end) {
       for (const [release, kind] of [[10, "CPI"], [50, "NFP"]]) {
         events.push(...normalizeReleaseDates(await fetchReleaseDates(env, release), kind, await db.now(), `https://fred.stlouisfed.org/release?rid=${release}`));
       }
-      const response = await fetch("https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm", { signal: AbortSignal.timeout(12e3) });
-      if (!response.ok) throw new BackendError("FED_CALENDAR_UNAVAILABLE");
-      events.push(...normalizeFedCalendar(await response.text(), await db.now()));
+      const urls = ["https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"];
+      for (let year = Number(start.slice(0, 4)); year <= Math.min(2020, Number(end.slice(0, 4))); year++) urls.push(`https://www.federalreserve.gov/monetarypolicy/fomchistorical${year}.htm`);
+      for (const url of urls) {
+        const response = await fetch(url, { signal: AbortSignal.timeout(12e3) });
+        if (!response.ok) throw new BackendError("FED_CALENDAR_UNAVAILABLE");
+        events.push(...normalizeFedCalendar(await response.text(), await db.now()));
+      }
       events = events.filter((e) => e.event_date >= start && e.event_date <= end);
     }
     const now = await db.now();
+    if (historical && ["oanda", "twelve"].includes(job)) observations = observations.map((o) => ({
+      ...o,
+      available_at: new Date(Math.min(Date.parse(now), Date.parse(nyTime(addDays(o.obs_date, 1))))).toISOString(),
+      availability_basis: "vendor_history",
+      evidence_url: job === "oanda" ? "https://developer.oanda.com/rest-live-v20/instrument-ep/" : "https://twelvedata.com/docs"
+    }));
     flags.push(...quality(observations, now));
     const groups = /* @__PURE__ */ new Map();
     for (const o of observations) {
@@ -370,7 +380,8 @@ async function ingest(env, job, start, end) {
     }
     const observationRows = await Promise.all(observations.map(async (o) => ({ ...o, run_id: run.id, content_hash: await digest({ series: o.series_id, date: o.obs_date, value: o.value, basis: o.availability_basis }) })));
     const barRows = await Promise.all(bars.map(async (b) => ({ ...b, run_id: run.id, content_hash: await digest({ ...b, available_at: void 0 }) })));
-    const written = observationRows.length ? await db.call("rpc/append_observations", "POST", { batch: observationRows }) : 0;
+    let written = 0;
+    for (let i = 0; i < observationRows.length; i += 500) written += await db.call("rpc/append_observations", "POST", { batch: observationRows.slice(i, i + 500) });
     const rawWritten = await db.append("fx_bars", barRows);
     let eventWritten = 0;
     for (const event of events) {
@@ -389,13 +400,14 @@ async function ingest(env, job, start, end) {
     throw new BackendError(code);
   }
 }
-function chunks(start, end) {
+function chunks(start, end, days = 31) {
   dateOnly(start);
   dateOnly(end);
   if (start > end) throw new BackendError("INVALID_JOB_RANGE", 400);
   const ranges = [];
+  if (!Number.isInteger(days) || days < 1 || days > 366) throw new BackendError("INVALID_CHUNK_SIZE", 400);
   for (let day = start; day <= end; ) {
-    const to = [addDays(day, 30), end].sort()[0];
+    const to = [addDays(day, days - 1), end].sort()[0];
     ranges.push({ start: day, end: to });
     day = addDays(to, 1);
   }
