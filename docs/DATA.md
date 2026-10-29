@@ -145,3 +145,31 @@ research-grade validation of an edge.
 ## Intraday chart range
 
 The private /api/intraday route retrieves only the last 24 hours of OANDA M15 midpoint candles. Incomplete candles are excluded; timestamps identify closes, 15 minutes after vendor starts. It has a 60-second per-instance success cache. The selected 1D view checks for new completed candles during the 15-second visible-tab polling loop. Daily macro overlays are omitted with an explicit message. 1W spans five daily return intervals. Intraday candles do not change the daily analysis or strict research contract.
+
+## Evidence grades (2026-10-29 revision; supersedes earlier original-vintage-only policy)
+
+| Series | Historical grade | Availability rule |
+| --- | --- | --- |
+| gold | B | Downloaded OANDA complete candles; following NY calendar day at 17:00, capped at retrieval |
+| dxy | B | All six same-close OANDA legs, same one-day delay |
+| gold_check | B | Twelve vendor daily history, following NY calendar day at 17:00; diagnostic different clock |
+| ry, breakeven, nominal_yield, oil, vix, broad_dollar | A | FRED output_type=4, after full vintage NY day; never before observation day ends |
+| cot | A from retrieval only | Current historical values do not prove historical release times; first actual database retrieval |
+| CPI/NFP/FOMC events | first-retrieval evidence | Descriptive event dates; unavailable in earlier information sets |
+| etf | C / missing | No configured approved source; unavailable |
+
+First-seen observations are A **only at/after actual retrieval**, including old observation dates. They are not original historical vintages. Grade B explicitly admits vendor corrections and is an assumption-based research series. Unverified basis is C. A panel inherits the worst grade of all used observations; absent grade is C. Research blocks C and reports the reason. Missing optional inputs are omitted, never zero-filled. Synthetic DXY inherits the vendor grade of its six constituents.
+
+Daily snapshots preserve the current first-seen payload and SHA-256 with the authoritative database capture clock; captures older than 24 hours are not counted. Snapshot date cannot be supplied retrospectively by the daily script. Repeated daily captures deduplicate. The snapshot counter reports collected calendar dates, not a claim of complete eligible model samples.
+
+## Prospective ledger and validation
+
+Models freeze weights, thresholds, regime rules and code git hash. Registering any new configuration creates an immutable version and a persisted trial. Version IDs include config and git revision. The current regime is deterministic; probabilities are explicitly one-hot heuristic assignments, not calibrated forecasts.
+
+Canonical JSON sorts object keys recursively, preserves array order and rejects nonfinite values. `row_hash = SHA256(canonical_payload || prev_hash)`; genesis predecessor is 64 zeroes. Database insertion derives fields from that exact payload, locks the chain head, checks that the model existed before close, and only permits a same-day business close plus 15 minutes through plus 6 hours. Inputs are archived separately under their snapshot hash. All ledger tables prohibit mutation. Forward returns are separate append-only outcomes at actual completed OANDA bar offsets 1/5/20. No historical live rows are created; simulations are explicitly stored in research_results.
+
+IC uses average tied ranks, paired circular block bootstrap (seed 1729, 999 replicates), block length max(horizon+1, ceil(cuberoot(n))). Effective sample size is the conservative number of independent blocks. Minimum sample is max(252, 30*(horizon+1)), with at least 30 effective blocks and 30 rows per directional bucket before any verdict. Permutation null shuffles blocks to preserve local overlap; p-values use the plus-one correction. Buckets report the unconditional mean, directional hit rates (Neutral has no directional hit rate), and monotonicity. Walk-forward splits purge horizon labels and embargo at least horizon; the current fixed rule has no fitted parameters.
+
+PnL remains blocked until archived OANDA bid/ask costs are available. DSR is deliberately unavailable without cross-trial Sharpe variance; persisted trial count alone does not identify it. CSCV PBO requires a complete common-bar return matrix for multiple candidates. These are outstanding implementation/data requirements, not evidence of a successful strategy.
+
+References: [OANDA candles](https://developer.oanda.com/rest-live-v20/instrument-ep/), [Twelve history limits](https://support.twelvedata.com/en/articles/5656039-how-to-get-historical-prices), [Deflated Sharpe](https://www.davidhbailey.com/dhbpapers/deflated-sharpe.pdf).

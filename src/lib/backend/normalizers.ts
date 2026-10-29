@@ -21,7 +21,7 @@ export function normalizeFred(payload: FredResponse, series: string, seen: strin
     const obs_date = dateOnly(o.date);
     // Only output_type=4 provides initial-release values. Date-only vintage
     // evidence is conservatively knowable AFTER the entire vintage NY day.
-    const available = initialRelease ? nyTime(addDays(dateOnly(o.realtime_start), 1), 0) : seen;
+    const available = initialRelease ? nyTime(addDays([dateOnly(o.realtime_start), obs_date].sort().at(-1)!, 1), 0) : seen;
     return { series_id: series, obs_date, value: number(o.value), available_at: Date.parse(available) > Date.parse(seen) ? seen : available,
       vendor: 'FRED', availability_basis: initialRelease && Date.parse(available) <= Date.parse(seen) ? 'vintage_day_end' : 'first_seen' };
   });

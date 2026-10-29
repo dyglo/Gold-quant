@@ -55,7 +55,7 @@ it('serves authorized eligible history exclusively through the as-of RPC', async
   vi.stubEnv('REAL_DATA_ENABLED', 'true'); vi.stubEnv('DATA_LICENSE_APPROVED', 'true');
   const dates: string[] = [];
   for (let d = '2025-01-01'; d <= '2025-12-30'; d = addDays(d, 1)) if (new Date(d).getUTCDay() % 6) dates.push(d);
-  const rows = dates.map((d, i) => ({ bar_date: d, bar_close: nyTime(d), points: Object.fromEntries(['gold', 'dxy', 'oil', 'ry'].map((k, j) => [k, { value: [2000 + i, 100 + i / 100, 70 + i / 100, 2][j], obs_date: d, available_at: nyTime(d), vendor: 'fixture', availability_basis: 'first_seen' }])) }));
+  const rows = dates.map((d, i) => ({ bar_date: d, bar_close: nyTime(d), points: Object.fromEntries(['gold', 'dxy', 'oil', 'ry'].map((k, j) => [k, { value: [2000 + i, 100 + i / 100, 70 + i / 100, 2][j], obs_date: d, available_at: nyTime(d), vendor: 'fixture', evidence_grade: 'A' as const, availability_basis: 'first_seen' }])) }));
   const fetch = vi.fn(async (url: string, init?: RequestInit) => {
     if (url.endsWith('/auth/v1/user')) return Response.json({ id: user });
     expect(url).not.toContain('/observations');

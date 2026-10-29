@@ -9,7 +9,7 @@ export async function validation(db:Database,version:string|null,horizon:number)
   const models=await db.call<{id:string;config:ModelConfig}[]>(`model_versions?select=id,config&${version?`id=eq.${encodeURIComponent(version)}&`:''}order=created_at.desc&limit=1`);
   if(!models.length)return {label:'research, not live',verdict:'insufficient evidence',reason:'No frozen model version registered'};
   const model=models[0],asof=await db.now(),rows=await readSeries(db,asof);
-  const prices=await allRows<{close_at:string;close:number}>(db,'fx_bars?select=close_at,close&instrument=eq.XAU_USD&order=close_at.asc,id.desc');
+  const prices=await allRows<{close_at:string;close:number}>(db,'fx_bars?select=close_at,close&instrument=eq.XAU_USD&order=close_at.asc,id.asc');
   const unique=[...new Map(prices.map(p=>[p.close_at,p])).values()];
   const dates=unique.map(p=>p.close_at.slice(0,10));
   const samples:{x:number;y:number;grade:'A'|'B'|'C';momentum:number}[]=[];
@@ -20,7 +20,7 @@ export async function validation(db:Database,version:string|null,horizon:number)
     catch(e) {blocked++;const reason=e instanceof Error?e.message:'UNKNOWN';blockedReasons[reason]=(blockedReasons[reason]??0)+1;}
   }
   const x=samples.map(s=>s.x),y=samples.map(s=>s.y),ic=informationCoefficient(x,y,horizon),bucket=buckets(x,y,model.config.threshold);
-  const trials=await db.call<{candidate_count:number}[]>('trials?select=candidate_count&limit=1000');
+  const trials=await allRows<{candidate_count:number}>(db,'trials?select=candidate_count&order=created_at.asc,id.asc');
   const trialCount=trials.reduce((s,t)=>s+t.candidate_count,0);
   const result={label:'research, not live',model_version:model.id,horizon,grade:worstGrade(samples.map(s=>s.grade)),ic,buckets:bucket,
     null:permutationNull(x,y,1729,999,Math.max(horizon+1,Math.ceil(Math.cbrt(x.length)))),

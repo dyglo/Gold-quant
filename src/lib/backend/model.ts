@@ -28,6 +28,9 @@ function fit(y: number[], x: number[][]) {
 /** Same frozen rule as the dashboard; each score uses only its prefix. */
 export function score(rows: BarRow[], config: ModelConfig = DEFAULT_MODEL) {
   if (config.engine !== 'fundamental-v1') throw new Error('UNSUPPORTED_MODEL_ENGINE');
+  let start=rows.length;
+  while(start>0&&core.every(k=>rows[start-1].points[k]))start--;
+  rows=rows.slice(start);
   const n=rows.length, last=rows.at(-1)!;
   if(n<config.window+2) throw new Error('INSUFFICIENT_WARMUP');
   const used: Point[]=[];
