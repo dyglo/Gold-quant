@@ -1,0 +1,22 @@
+{
+  "name": "Gold Quant",
+  "short_name": "Gold Quant",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#101212",
+  "theme_color": "#101212",
+  "icons": [
+    {
+      "src": "/icon1.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon2.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

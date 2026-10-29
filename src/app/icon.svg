@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <radialGradient id="glass" cx=".3" cy=".2" r=".85">
+      <stop stop-color="#344654"/>
+      <stop offset=".38" stop-color="#111c26"/>
+      <stop offset=".75" stop-color="#090d12"/>
+      <stop offset="1" stop-color="#34291b"/>
+    </radialGradient>
+    <linearGradient id="rim" x1="10" y1="7" x2="48" y2="59" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#c7d9e5"/>
+      <stop offset=".3" stop-color="#425b70"/>
+      <stop offset=".6" stop-color="#202832"/>
+      <stop offset="1" stop-color="#e7af53"/>
+    </linearGradient>
+    <linearGradient id="chart" x1="13" y1="45" x2="50" y2="19" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#d38b28"/>
+      <stop offset=".55" stop-color="#f4c776"/>
+      <stop offset="1" stop-color="#fff0c8"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="23" y1="5" x2="30" y2="26" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#edf5ff" stop-opacity=".35"/>
+      <stop offset="1" stop-color="#edf5ff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <circle cx="32" cy="32" r="30" fill="url(#glass)" stroke="url(#rim)" stroke-width="2"/>
+  <ellipse cx="27" cy="17" rx="20" ry="10" fill="url(#shine)" transform="rotate(-23 27 17)"/>
+  <path d="M12 46 20 37 27 41 35 29 41 33 51 18" stroke="#e9b35d" stroke-opacity=".12" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M12 46 20 37 27 41 35 29 41 33 51 18" stroke="url(#chart)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M20 33v9m7-5v9m8-21v10m6-6v9m10-24v10" stroke="url(#chart)" stroke-width="1.3" stroke-linecap="round"/>
+  <path d="M12 18C18 8 31 5 42 10" stroke="#e5f2ff" stroke-opacity=".3" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M24 57c10 3 21-1 27-8" stroke="#f6ca80" stroke-opacity=".65" stroke-width="1.4" stroke-linecap="round"/>
+</svg>
