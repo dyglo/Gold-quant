@@ -1,0 +1,91 @@
+.page {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: 42.5% 57.5%;
+  min-height: 100svh;
+  background: #101212;
+  color: #f4f4f1;
+  font-family: Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.page::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: .075;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.92' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Cpath fill='%23fff' filter='url(%23n)' opacity='.6' d='M0 0h180v180H0z'/%3E%3C/svg%3E");
+}
+
+.brand { position: absolute; top: 28px; left: 34px; font-size: 15px; font-weight: 400; letter-spacing: -.6px; z-index: 1; }
+.brand span { margin-left: 3px; color: #a9acab; font-size: 11px; letter-spacing: .4px; }
+.visual { position: relative; min-height: 100%; border-right: 1px solid #ffffff04; background: radial-gradient(ellipse at 45% 50%, #181a1b55, transparent 60%); }
+.orbs {
+  position: absolute;
+  width: min(78%, 340px);
+  aspect-ratio: 470 / 510;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  /* Frame the six orbs with breathing room in the supplied 1571 × 1001 artwork. */
+  background-image: url('./assets/market-orbs.png');
+  background-size: 334.2553% 196.2745%;
+  background-position: 8.356% 46.4358%;
+  background-repeat: no-repeat;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+.caption { position: absolute; bottom: 64px; left: 0; width: 100%; text-align: center; font-size: 10px; letter-spacing: .04em; color: #727775; }
+.main { display: flex; align-items: center; justify-content: center; width: 100%; max-width: none; margin: 0; padding: 100px 40px 70px; }
+.panel { width: 100%; max-width: 320px; text-align: center; }
+.heading { margin-bottom: 42px; }
+.heading h1 { margin: 0 0 8px; font-family: Georgia, 'Times New Roman', serif; font-size: 26px; font-weight: 400; letter-spacing: -.6px; line-height: 1.2; }
+.heading p { margin: 0; color: #999d9b; font-size: 12px; }
+.textButton { padding: 0; border: 0; background: none; color: #999d9b; font-size: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.textButton:hover { color: #f5f5f3; }
+.form { display: grid; gap: 12px; }
+.field { position: relative; display: flex; flex-direction: column; justify-content: center; min-height: 54px; padding: 10px 24px; background: #1e2020; border: 1px solid transparent; border-radius: 32px; text-align: left; }
+.field:focus-within { border-color: #777f7b; }
+.field > span { font-size: 9px; line-height: 1.4; color: #a6aaa7; }
+.field input { width: 100%; min-width: 0; padding: 0; border: 0; outline: 0; background: transparent; color: #f1f2ef; font-size: 12px; line-height: 1.6; border-radius: 0; }
+.field input::placeholder { color: #777c79; opacity: 1; }
+.field input:autofill { box-shadow: 0 0 0 100px #1e2020 inset; -webkit-text-fill-color: #f1f2ef; }
+.password { padding-right: 58px; }
+.reveal { position: absolute; right: 12px; top: 7px; display: grid; place-items: center; width: 40px; height: 40px; padding: 11px; border: 0; border-radius: 50%; background: transparent; color: #8d928f; }
+.reveal svg { width: 18px; height: 18px; }
+.reveal:hover { color: #fff; }
+.enter { min-height: 52px; margin-top: 2px; border: 1px solid #fff; border-radius: 32px; background: #fafbf9; color: #141615; font-size: 12px; font-weight: 500; }
+.enter:hover:not(:disabled) { background: #dedfdb; }
+.enter:disabled { cursor: default; opacity: .55; }
+.forgot { margin-top: 18px; font-size: 11px; text-decoration: none; }
+.divider { display: flex; align-items: center; gap: 14px; margin: 24px 0 18px; color: #7d827f; font-size: 10px; }
+.divider::before, .divider::after { content: ''; height: 1px; flex: 1; background: #ffffff0c; }
+.google { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; min-height: 50px; padding: 12px 20px; border: 1px solid #343837; border-radius: 32px; background: #161818; color: #dedfdd; font-size: 12px; }
+.google:hover { background: #222525; }
+.google svg { width: 17px; height: 17px; }
+.notice, .message, .error { margin: 14px 4px 0; font-size: 11px; line-height: 1.65; overflow-wrap: anywhere; }
+.notice { min-height: 36px; color: #a6ada8; }
+.message { color: #a6ada8; margin-top: 0; }
+.error { color: #f2aaa0; margin-top: 2px; }
+.footer { position: absolute; bottom: 20px; left: 0; width: 42.5%; display: flex; justify-content: center; gap: 18px; color: #727775; font-size: 9px; }
+.footer span { color: #727775; }
+.page button:focus-visible { outline: 2px solid #c4ccc6; outline-offset: 5px; }
+
+@media (min-width: 1500px) { .orbs { transform: translate(-50%, -50%) scale(1.2); } }
+@media (max-width: 700px) {
+  .page { grid-template-columns: 1fr; }
+  .visual { display: none; }
+  .brand { top: 26px; left: 26px; }
+  .main { min-height: 100svh; padding: 112px 28px 72px; }
+  .panel { max-width: 340px; }
+  .heading { margin-bottom: 34px; }
+  .heading h1 { font-size: 28px; }
+  .field { min-height: 58px; }
+  .field input { font-size: 16px; }
+  .reveal { top: 9px; }
+  .footer { width: 100%; bottom: 18px; }
+}
+@media (max-height: 620px) and (min-width: 701px) { .main { padding-top: 68px; padding-bottom: 24px; } .heading { margin-bottom: 26px; } }
