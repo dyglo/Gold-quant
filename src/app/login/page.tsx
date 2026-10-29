@@ -30,7 +30,7 @@ export default function Login() {
   return <div className={styles.page}>
     <header className={styles.brand}>DEPLYZE <span>QE</span></header>
     <div className={styles.visual} aria-hidden="true">
-      <div className={styles.orbs}>{Array.from({ length: 6 }, (_, index) => <i key={index} />)}</div>
+      <div className={styles.orbs} />
       <span className={styles.caption}>A clearer perspective.</span>
     </div>
     <main className={styles.main}>
