@@ -23,14 +23,21 @@
 .brand { position: absolute; top: 28px; left: 34px; font-size: 15px; font-weight: 400; letter-spacing: -.6px; z-index: 1; }
 .brand span { margin-left: 3px; color: #a9acab; font-size: 11px; letter-spacing: .4px; }
 .visual { position: relative; min-height: 100%; border-right: 1px solid #ffffff04; background: radial-gradient(ellipse at 45% 50%, #181a1b55, transparent 60%); }
-.orbs { position: absolute; width: 260px; height: 300px; top: 50%; left: 50%; transform: translate(-50%, -50%); }
-.orbs i { position: absolute; display: block; width: 44px; height: 44px; border-radius: 50%; background: radial-gradient(ellipse at 32% 22%, #666b7080 0%, #30333899 18%, #17191d 40%, #0c0d0f 67%, #343c4a70 85%, #101212 100%); box-shadow: inset -5px -7px 12px #0009, 4px 10px 20px #0003; opacity: .7; }
-.orbs i:nth-child(1) { left: 122px; top: 22px; transform: rotate(30deg); }
-.orbs i:nth-child(2) { left: 24px; top: 61px; width: 39px; height: 39px; transform: rotate(-35deg); }
-.orbs i:nth-child(3) { right: 4px; top: 102px; background: radial-gradient(ellipse at 34% 22%, #8c8c8760, #343b4880 24%, #141a24 48%, #0b0e13 70%, #404b6b90 90%); }
-.orbs i:nth-child(4) { left: 7px; top: 164px; width: 38px; height: 38px; }
-.orbs i:nth-child(5) { right: 23px; top: 194px; transform: rotate(-30deg); }
-.orbs i:nth-child(6) { left: 79px; bottom: 0; width: 46px; height: 48px; background: radial-gradient(ellipse at 28% 26%, #7e8da680, #283446 23%, #0d1119 50%, #0b0e13 69%, #5c729a90 89%); }
+.orbs {
+  position: absolute;
+  width: min(78%, 340px);
+  aspect-ratio: 470 / 510;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  /* Frame the six orbs with breathing room in the supplied 1571 × 1001 artwork. */
+  background-image: url('./assets/market-orbs.png');
+  background-size: 334.2553% 196.2745%;
+  background-position: 8.356% 46.4358%;
+  background-repeat: no-repeat;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
 .caption { position: absolute; bottom: 64px; left: 0; width: 100%; text-align: center; font-size: 10px; letter-spacing: .04em; color: #727775; }
 .main { display: flex; align-items: center; justify-content: center; width: 100%; max-width: none; margin: 0; padding: 100px 40px 70px; }
 .panel { width: 100%; max-width: 320px; text-align: center; }
